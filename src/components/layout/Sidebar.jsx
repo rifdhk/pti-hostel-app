@@ -18,6 +18,7 @@ import {
   MessageSquare,
   LifeBuoy,
   User,
+  Edit3,
   Sliders
 } from 'lucide-react';
 import { useAuth, USER_ROLES } from '../../contexts/AuthContext';
@@ -49,6 +50,7 @@ export default function Sidebar() {
       { name: t('nav.noticeBoard'), path: '/notices', icon: Bell },
       { name: t('nav.communicationHub'), path: '/chat', icon: MessageSquare },
       { name: t('nav.ticketSupport'), path: '/tickets', icon: LifeBuoy },
+      { name: t('profile.editProfile', 'Edit Profile'), path: '/profile?edit=true', icon: Edit3 },
       { name: t('nav.profile'), path: '/profile', icon: User },
     ];
 
@@ -205,15 +207,18 @@ export default function Sidebar() {
           ).replace(/Director General/g, 'Master Admin');
           return (
         <div className="p-2.5 rounded-lg bg-slate-800/90 border border-slate-700/70 shadow-sm flex items-center justify-between">
-          <NavLink to="/profile" className="min-w-0 flex-1 mr-2 group flex items-center gap-2.5" title="View & Edit My Profile">
+          <NavLink to="/profile?edit=true" className="min-w-0 flex-1 mr-2 group flex items-center gap-2.5" title="View & Edit My Profile">
             <AvatarRenderer
               avatarId={(userProfile || currentUser)?.avatar_id}
               gender={(userProfile || currentUser)?.gender}
               className="w-8 h-8 rounded-full border border-slate-700 shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white truncate group-hover:text-brand-gold transition-colors">
-                {displayName}
+              <p className="text-xs font-semibold text-white truncate group-hover:text-brand-gold transition-colors flex items-center gap-1.5">
+                <span>{displayName}</span>
+                <span className="text-[10px] text-brand-gold bg-slate-700/80 px-1 py-0.5 rounded flex items-center gap-0.5">
+                  <Edit3 className="w-2.5 h-2.5" /> Edit
+                </span>
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-brand-gold shrink-0"></span>

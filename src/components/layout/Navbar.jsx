@@ -6,6 +6,7 @@ import {
   Search, 
   Building2, 
   User, 
+  Edit3,
   KeyRound, 
   LogOut, 
   ChevronDown 
@@ -197,6 +198,15 @@ export default function Navbar() {
                   >
                     <User className="w-4 h-4 text-slate-400" />
                     <span>{t('profile.title')}</span>
+                  </Link>
+
+                  <Link
+                    to="/profile?edit=true"
+                    onClick={() => setProfileMenuOpen(false)}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-brand-gold hover:bg-slate-800 font-semibold transition-colors"
+                  >
+                    <Edit3 className="w-4 h-4 text-brand-gold" />
+                    <span>{t('profile.editProfile', 'Edit Profile')}</span>
                   </Link>
 
                   <button

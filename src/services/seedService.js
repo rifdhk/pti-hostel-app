@@ -7,6 +7,7 @@ import {
   fetchCollectionFromCloud,
   queryFirebaseUserByField,
   upsertRecordToCloud,
+  updateUserInFirestore,
   deleteRecordFromCloud,
   supabaseRequest,
   dbService
@@ -381,12 +382,16 @@ export async function updateUserData(userIdOrRoll, updates) {
       targetUser = {
         ...cleanUser,
         ...cleanUpdates,
+        name: updates.name ? String(updates.name).trim() : cleanUser.name,
         gender: nextGender,
         avatar_id: nextAvatarId,
         hostelName: hostelName,
         // Sync phone and phone_number
-        phone: updates.phone_number || updates.phone || u.phone,
-        phone_number: updates.phone_number || updates.phone || u.phone_number,
+        phone: updates.phone_number || updates.phone || u.phone || '',
+        phone_number: updates.phone_number || updates.phone || u.phone_number || '',
+        emergency_contact_name: updates.emergency_contact_name !== undefined ? updates.emergency_contact_name : (u.emergency_contact_name || ''),
+        emergency_contact_phone: updates.emergency_contact_phone !== undefined ? updates.emergency_contact_phone : (u.emergency_contact_phone || u.emergency_contact || ''),
+        emergency_contact: updates.emergency_contact !== undefined ? updates.emergency_contact : (updates.emergency_contact_phone || u.emergency_contact || ''),
       };
       return targetUser;
     }
@@ -399,7 +404,11 @@ export async function updateUserData(userIdOrRoll, updates) {
     // Sync Cloud BaaS (Firebase or Supabase) if configured
     if (isBaasConfigured && (targetUser.id || targetUser.loginId)) {
       try {
-        await upsertRecordToCloud(COLLECTIONS.USERS, targetUser.id || targetUser.loginId, targetUser);
+        const docId = targetUser.id || targetUser.loginId;
+        await upsertRecordToCloud(COLLECTIONS.USERS, docId, targetUser);
+        if (isFirebaseConfigured) {
+          await updateUserInFirestore(docId, targetUser);
+        }
       } catch (err) {
         console.warn(`Cloud BaaS (${activeBaasProvider}) user update fallback:`, err);
       }

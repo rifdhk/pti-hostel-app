@@ -380,7 +380,8 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
               Emergency Contact
             </span>
             <p className="font-bold text-slate-800 font-mono text-xs truncate">
-              {user.emergency_contact || 'N/A'}
+              {user.emergency_contact_name ? `${user.emergency_contact_name}: ` : ''}
+              {user.emergency_contact_phone || user.emergency_contact || 'N/A'}
             </p>
           </div>
 

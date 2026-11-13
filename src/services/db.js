@@ -11,6 +11,7 @@ import {
   doc,
   getDocs,
   setDoc,
+  updateDoc,
   deleteDoc,
   query,
   where
@@ -157,7 +158,12 @@ export async function upsertRecordToCloud(collectionName, recordId, payload) {
   if (!isBaasConfigured || !recordId) return;
 
   if (activeBaasProvider === 'firebase') {
-    await setDoc(doc(firestoreDb, collectionName, String(recordId)), payload, { merge: true });
+    const docRef = doc(firestoreDb, collectionName, String(recordId));
+    try {
+      await updateDoc(docRef, payload);
+    } catch {
+      await setDoc(docRef, payload, { merge: true });
+    }
     return;
   }
 
@@ -167,6 +173,35 @@ export async function upsertRecordToCloud(collectionName, recordId, payload) {
       body: { id: String(recordId), ...payload }
     });
   }
+}
+
+/**
+ * Updates a logged-in user document directly in Firestore via updateDoc.
+ * Fallbacks to setDoc { merge: true } if document does not yet exist.
+ */
+export async function updateUserInFirestore(userOrId, updates) {
+  if (!isFirebaseConfigured || !firestoreDb) return null;
+  const docId = typeof userOrId === 'object' && userOrId !== null
+    ? (userOrId.id || userOrId.uid || firebaseAuth?.currentUser?.uid || userOrId.loginId)
+    : String(userOrId);
+
+  if (!docId) return null;
+
+  const docRef = doc(firestoreDb, COLLECTIONS.USERS, String(docId));
+  try {
+    await updateDoc(docRef, updates);
+  } catch (err) {
+    await setDoc(docRef, updates, { merge: true });
+  }
+
+  // Also sync with Firebase Auth UID document if different
+  if (firebaseAuth?.currentUser?.uid && firebaseAuth.currentUser.uid !== String(docId)) {
+    try {
+      const authDocRef = doc(firestoreDb, COLLECTIONS.USERS, firebaseAuth.currentUser.uid);
+      await updateDoc(authDocRef, updates).catch(() => setDoc(authDocRef, updates, { merge: true }));
+    } catch {}
+  }
+  return true;
 }
 
 export async function deleteRecordFromCloud(collectionName, recordId) {

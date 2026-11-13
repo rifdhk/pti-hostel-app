@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { 
   User, 
@@ -40,7 +41,24 @@ import { sanitizeDisplayName } from '../utils/displayName';
 
 export default function Profile() {
   const { t } = useTranslation();
+  const location = useLocation();
   const { userProfile, role, isSuperintendent, updateUserProfile } = useAuth();
+
+  // Helper to resolve emergency contact name & phone
+  const getInitialEmergency = () => {
+    const rawContact = userProfile?.emergency_contact || '';
+    const rawPhone = userProfile?.emergency_contact_phone || '';
+    const rawName = userProfile?.emergency_contact_name || '';
+
+    if (rawPhone) {
+      return { name: rawName, phone: rawPhone };
+    }
+    const match = String(rawContact).match(/^(.*?)\s*\((.*?)\)$/);
+    if (match) {
+      return { name: rawName || match[1].trim(), phone: match[2].trim() };
+    }
+    return { name: rawName, phone: String(rawContact).trim() };
+  };
 
   // Edit Modal State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -50,9 +68,12 @@ export default function Profile() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State
+  const initialEmergency = getInitialEmergency();
   const [formData, setFormData] = useState({
+    name: sanitizeDisplayName(userProfile?.name, ''),
     phone_number: userProfile?.phone_number || userProfile?.phone || '',
-    emergency_contact: userProfile?.emergency_contact || '',
+    emergency_contact_name: initialEmergency.name,
+    emergency_contact_phone: initialEmergency.phone,
     district: userProfile?.district || '',
     upazila: userProfile?.upazila || '',
     union_ward: userProfile?.union_ward || '',
@@ -60,15 +81,16 @@ export default function Profile() {
     gender: normalizeGender(userProfile?.gender),
     avatar_id: resolveUserAvatarId(userProfile),
     role: userProfile?.role || USER_ROLES.SUPERINTENDENT,
-    // Superintendent only can edit name
-    name: sanitizeDisplayName(userProfile?.name, ''),
   });
 
   const openEditModal = () => {
     const resolvedGender = normalizeGender(userProfile?.gender);
+    const em = getInitialEmergency();
     setFormData({
+      name: sanitizeDisplayName(userProfile?.name, ''),
       phone_number: userProfile?.phone_number || userProfile?.phone || '',
-      emergency_contact: userProfile?.emergency_contact || '',
+      emergency_contact_name: em.name,
+      emergency_contact_phone: em.phone,
       district: userProfile?.district || '',
       upazila: userProfile?.upazila || '',
       union_ward: userProfile?.union_ward || '',
@@ -76,11 +98,17 @@ export default function Profile() {
       gender: resolvedGender,
       avatar_id: resolveUserAvatarId(userProfile),
       role: userProfile?.role || USER_ROLES.SUPERINTENDENT,
-      name: sanitizeDisplayName(userProfile?.name, ''),
     });
     setSaveError('');
     setShowEditModal(true);
   };
+
+  // Support direct deep-link or navbar action /profile?edit=true
+  useEffect(() => {
+    if (location.search.includes('edit=true')) {
+      openEditModal();
+    }
+  }, [location.search]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -89,10 +117,17 @@ export default function Profile() {
     
     try {
       const resolvedGender = normalizeGender(formData.gender);
+      const emName = (formData.emergency_contact_name || '').trim();
+      const emPhone = (formData.emergency_contact_phone || '').trim();
+      const combinedEmergency = emPhone ? (emName ? `${emName} (${emPhone})` : emPhone) : '';
+
       const updates = {
-        phone_number: formData.phone_number,
-        phone: formData.phone_number,
-        emergency_contact: formData.emergency_contact,
+        name: (formData.name || '').trim(),
+        phone_number: (formData.phone_number || '').trim(),
+        phone: (formData.phone_number || '').trim(),
+        emergency_contact_name: emName,
+        emergency_contact_phone: emPhone,
+        emergency_contact: combinedEmergency,
         district: formData.district,
         upazila: formData.upazila,
         union_ward: formData.union_ward,
@@ -101,15 +136,14 @@ export default function Profile() {
         avatar_id: formData.avatar_id || getDefaultAvatarId(resolvedGender),
       };
 
-      // If Superintendent, allow updating full name and role as well
-      if (isSuperintendent) {
-        if (formData.name) updates.name = formData.name;
-        if (formData.role) updates.role = formData.role;
+      // If Superintendent, allow updating administrative role as well
+      if (isSuperintendent && formData.role) {
+        updates.role = formData.role;
       }
 
       await updateUserProfile(updates);
       setShowEditModal(false);
-      setSaveSuccess('Profile contact & address details successfully updated!');
+      setSaveSuccess('Profile contact & emergency details successfully updated!');
       setTimeout(() => setSaveSuccess(''), 4000);
     } catch (err) {
       setSaveError(err.message || 'Failed to update profile details.');
@@ -337,8 +371,9 @@ export default function Profile() {
                 <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
                 Emergency Contact (জরুরি যোগাযোগ)
               </span>
-              <span className="font-bold text-rose-700 font-mono">
-                {userProfile?.emergency_contact || 'Not provided'}
+              <span className="font-bold text-rose-700 font-mono text-right">
+                {userProfile?.emergency_contact_name ? `${userProfile.emergency_contact_name} • ` : ''}
+                {userProfile?.emergency_contact_phone || userProfile?.emergency_contact || 'Not provided'}
               </span>
             </div>
 
@@ -488,67 +523,84 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Editable: Full Name & Administrative Role (Superintendent only) */}
+              {/* Editable: Full Name (Editable for all users) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                  Full Name (পূর্ণ নাম) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter your full name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-semibold focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+
+              {/* Administrative Role (Superintendent only) */}
               {isSuperintendent && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                      Superintendent Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                      Administrative Role
-                    </label>
-                    <select
-                      value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600 font-medium"
-                    >
-                      <option value={USER_ROLES.SUPERINTENDENT}>Superintendent (Tier 1)</option>
-                      <option value={USER_ROLES.HOSTEL_SUPER}>Hostel Super (Tier 2)</option>
-                      <option value={USER_ROLES.HOSTEL_MONITOR}>Hostel Monitor (Tier 3)</option>
-                      <option value={USER_ROLES.MEAL_MANAGER}>Meal Manager (Tier 4)</option>
-                      <option value={USER_ROLES.BOARDER_STUDENT}>Boarder Student (Tier 5)</option>
-                      <option value={USER_ROLES.NON_BOARDER_STUDENT}>Non-Boarder (Tier 6)</option>
-                    </select>
-                  </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                    Administrative Role
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                    className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-gold font-medium"
+                  >
+                    <option value={USER_ROLES.SUPERINTENDENT}>Superintendent (Tier 1)</option>
+                    <option value={USER_ROLES.HOSTEL_SUPER}>Hostel Super (Tier 2)</option>
+                    <option value={USER_ROLES.HOSTEL_MONITOR}>Hostel Monitor (Tier 3)</option>
+                    <option value={USER_ROLES.MEAL_MANAGER}>Meal Manager (Tier 4)</option>
+                    <option value={USER_ROLES.BOARDER_STUDENT}>Boarder Student (Tier 5)</option>
+                    <option value={USER_ROLES.NON_BOARDER_STUDENT}>Non-Boarder (Tier 6)</option>
+                  </select>
                 </div>
               )}
 
-              {/* Editable: Contact Phone Numbers */}
+              {/* Editable: Contact Phone Number */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                  Phone Number (মোবাইল নম্বর) *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="+880 1712-000000"
+                  value={formData.phone_number}
+                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+
+              {/* Editable: Emergency Contact Details (Name & Phone) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Mobile Number (মোবাইল নম্বর) *
+                    Emergency Contact Name (জরুরি যোগাযোগের নাম) *
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="+880 1712-000000"
-                    value={formData.phone_number}
-                    onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                    className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:border-brand-600"
+                    placeholder="Guardian / Relative Name"
+                    value={formData.emergency_contact_name}
+                    onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+                    className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-amber-500/20"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                    Emergency Contact (জরুরি যোগাযোগ) *
+                    Emergency Contact Phone (জরুরি যোগাযোগের ফোন নম্বর) *
                   </label>
                   <input
                     type="text"
                     required
                     placeholder="+880 1819-000000"
-                    value={formData.emergency_contact}
-                    onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
-                    className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:border-brand-600"
+                    value={formData.emergency_contact_phone}
+                    onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
+                    className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-amber-500/20"
                   />
                 </div>
               </div>

@@ -80,6 +80,8 @@ export default function UserEditModal({ user, isOpen, onClose, onUserUpdated }) 
         bedNumber: isUserNonBoarder ? '' : (user.bedNumber || 'Bed 1'),
         phone_number: user.phone_number || user.phone || '',
         emergency_contact: user.emergency_contact || '',
+        emergency_contact_name: user.emergency_contact_name || '',
+        emergency_contact_phone: user.emergency_contact_phone || user.emergency_contact || '',
         district: user.district || '',
         upazila: user.upazila || '',
         union_ward: user.union_ward || '',
@@ -173,7 +175,9 @@ export default function UserEditModal({ user, isOpen, onClose, onUserUpdated }) 
         role: formData.role === 'boarder' ? USER_ROLES.BOARDER_STUDENT : formData.role,
         phone_number: formData.phone_number,
         phone: formData.phone_number,
-        emergency_contact: formData.emergency_contact,
+        emergency_contact: formData.emergency_contact_phone || formData.emergency_contact || '',
+        emergency_contact_name: formData.emergency_contact_name || '',
+        emergency_contact_phone: formData.emergency_contact_phone || formData.emergency_contact || '',
         district: formData.district,
         upazila: formData.upazila,
         union_ward: formData.union_ward,
@@ -476,13 +480,26 @@ export default function UserEditModal({ user, isOpen, onClose, onUserUpdated }) 
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                Emergency Contact
+                Emergency Contact Name
+              </label>
+              <input
+                type="text"
+                placeholder="Guardian / Contact Name"
+                value={formData.emergency_contact_name || ''}
+                onChange={(e) => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+                className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                Emergency Contact Phone
               </label>
               <input
                 type="text"
                 placeholder="+880 1819-000000"
-                value={formData.emergency_contact}
-                onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
+                value={formData.emergency_contact_phone || formData.emergency_contact || ''}
+                onChange={(e) => setFormData({ ...formData, emergency_contact_phone: e.target.value, emergency_contact: e.target.value })}
                 className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:border-brand-600"
               />
             </div>
