@@ -10,8 +10,8 @@ export const SEED_PTIS = [
   {
     id: 'pti_dhaka',
     pti_id: 'pti_dhaka',
-    name: "Dhaka Central Primary Teachers' Training Institute",
-    shortName: 'Dhaka PTI',
+    name: "Primary Teachers Training Institutes",
+    shortName: 'PTI',
     district: 'Dhaka',
     division: 'Dhaka',
     code: 'PTI-DHK-01',
@@ -23,9 +23,9 @@ export const SEED_PTIS = [
     status: 'Active',
     createdAt: '2026-01-10',
     settings: {
-      instituteName: "Dhaka Central Primary Teachers' Training Institute",
-      appTitle: "Dhaka PTI - Hostel & Training Management System",
-      instituteShortName: "Dhaka PTI",
+      instituteName: "Primary Teachers Training Institutes",
+      appTitle: "Hostel Management App",
+      instituteShortName: "PTI",
       fixedEstablishmentFee: 1200,
       cutOffTime: "20:00",
       mealCalculationsEnabled: true,

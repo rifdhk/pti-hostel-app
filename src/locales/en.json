@@ -64,9 +64,10 @@
     "non_boarder_student": "Non-Boarder Student"
   },
   "login": {
-    "title": "Institutional Sign In",
-    "subtitle": "Primary Teachers' Training Institute (PTI) Hostel Management System",
-    "loginId": "Class Roll or User ID",
+    "title": "Contact your Superintendent or Hostel Super for your user account and password.",
+    "subtitle": "Hostel Management App",
+    "accountNotice": "Contact your Superintendent or Hostel Super for your user account and password.",
+    "loginId": "USER ID",
     "loginIdPlaceholder": "Enter Roll (e.g. 101) or ID (e.g. admin)",
     "password": "Password",
     "passwordPlaceholder": "Enter password",

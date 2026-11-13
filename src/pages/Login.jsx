@@ -29,7 +29,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [toastError, setToastError] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const { loginWithIdentifier, isFirebaseConfigured, instituteName, appTitle } = useAuth();
+  const { loginWithIdentifier, isFirebaseConfigured } = useAuth();
   const navigate = useNavigate();
 
   // Check for redirected suspension/revocation notices
@@ -139,10 +139,10 @@ export default function Login() {
             )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">
-            {isMasterLogin ? "Central Master Admin" : (instituteName || t('common.appName'))}
+            {isMasterLogin ? "Central Master Admin" : "Primary Teachers Training Institutes"}
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            {isMasterLogin ? "Central Admin Control Portal (Tier 0)" : (appTitle || t('login.subtitle'))}
+            {isMasterLogin ? "Central Admin Control Portal (Tier 0)" : "Hostel Management App"}
           </p>
         </div>
 
@@ -151,8 +151,9 @@ export default function Login() {
           
           <div className="mb-5 pb-4 border-b border-slate-100 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-base font-bold text-slate-800">{t('login.title')}</h2>
-              <p className="text-xs text-slate-500 mt-0.5">{t('login.subtitle')}</p>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Contact your Superintendent or Hostel Super for your user account and password.
+              </p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <LanguageSwitcher />
@@ -213,11 +214,11 @@ export default function Login() {
               </select>
             </div>
 
-            {/* User ID / Roll Number */}
+            {/* User ID */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
-                  {t('login.loginId')}
+                  USER ID
                 </label>
                 {detectedRole && (
                   <span className="text-[11px] font-medium text-teal-600 flex items-center gap-1">
@@ -432,7 +433,7 @@ export default function Login() {
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-400">
-          Academic Year 2026-2027 • Strict Hostel-Level Data Isolation Enforced
+          <span>PTI Hostel Management App: <a href="https://www.facebook.com/xpertsuddin" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">@Sharif Uddin</a></span>
         </p>
       </div>
     </div>
