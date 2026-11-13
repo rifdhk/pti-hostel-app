@@ -1,0 +1,11 @@
+export { default as FemaleHijab } from './FemaleHijab';
+export { default as FemaleNiqab } from './FemaleNiqab';
+export { default as FemaleSaree } from './FemaleSaree';
+export { default as FemaleSalwar } from './FemaleSalwar';
+export { default as FemaleWestern } from './FemaleWestern';
+export { default as MaleSuit } from './MaleSuit';
+export { default as MaleShirt } from './MaleShirt';
+export { default as MalePanjabi } from './MalePanjabi';
+export { default as MalePanjabiTupi } from './MalePanjabiTupi';
+export { default as MalePolo } from './MalePolo';
+export { default as AvatarRenderer, AVATAR_COMPONENT_MAP } from './AvatarRenderer';
