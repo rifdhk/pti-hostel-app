@@ -13,7 +13,8 @@ import {
   Check,
   X,
   Receipt,
-  Utensils
+  Utensils,
+  ShoppingBag
 } from 'lucide-react';
 import Card from '../common/Card';
 import StatCard from '../common/StatCard';
@@ -22,18 +23,25 @@ import Badge from '../common/Badge';
 import AvatarRenderer from '../Avatars/AvatarRenderer';
 import { normalizeGender } from '../../constants/avatars';
 import NextDayMealToggle from '../common/NextDayMealToggle';
+import FeeDepositModal from '../common/FeeDepositModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
 
 export default function HostelMonitorDashboard() {
-  const { userProfile, effectiveHostelId } = useAuth();
+  const { userProfile, effectiveHostelId, effectivePtiId, isSuperintendent, isHostelSuper } = useAuth();
+  const role = (userProfile?.role || '').toLowerCase();
+  const isSuper = isSuperintendent || isHostelSuper || role.includes('superintendent') || role.includes('hostel_super') || role === 'admin';
+  const currentMonth = mealAutomationService.getCurrentMonth();
   
   const [expenses, setExpenses] = useState([]);
   const [pendingEstDeposits, setPendingEstDeposits] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [depositActionMessage, setDepositActionMessage] = useState('');
+
+  // Dynamic fee deposit opt-in status for Supers
+  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
 
   // Establishment Expense Entry Form State (Defaults to 'pending')
   const [newExpense, setNewExpense] = useState({
@@ -45,14 +53,18 @@ export default function HostelMonitorDashboard() {
     notes: '',
   });
 
-  // Self Fee Deposit Modal State (T3 Hostel Monitor pays personal boarder fees)
+  // Self Fee Deposit Modal State
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState('');
-  const [newDeposit, setNewDeposit] = useState({
-    depositType: 'Establishment Fee Deposit',
+
+  // Daily Mess Bazar Modal State
+  const [showBazarModal, setShowBazarModal] = useState(false);
+  const [newBazar, setNewBazar] = useState({
+    date: new Date().toISOString().split('T')[0],
     amount: '',
-    paymentMethod: 'bKash / Mobile Banking',
-    trxId: ''
+    itemsList: '',
+    voucherNo: '',
+    vendor: ''
   });
 
   useEffect(() => {
@@ -61,20 +73,34 @@ export default function HostelMonitorDashboard() {
     const handleDepositsChanged = () => {
       loadHostelData();
     };
+    const handleMealsChanged = () => {
+      setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+    };
+
     window.addEventListener('pti_deposits_changed', handleDepositsChanged);
-    return () => window.removeEventListener('pti_deposits_changed', handleDepositsChanged);
-  }, [effectiveHostelId]);
+    window.addEventListener('pti_meals_changed', handleMealsChanged);
+    window.addEventListener('pti_super_opt_in_changed', handleMealsChanged);
+
+    return () => {
+      window.removeEventListener('pti_deposits_changed', handleDepositsChanged);
+      window.removeEventListener('pti_meals_changed', handleMealsChanged);
+      window.removeEventListener('pti_super_opt_in_changed', handleMealsChanged);
+    };
+  }, [effectiveHostelId, userProfile, currentMonth]);
 
   const loadHostelData = () => {
     // 1. Load establishment expenses
     setExpenses(dbService.getEstablishmentExpenses(e => e.hostelId === effectiveHostelId));
 
-    // 2. Load Pending Establishment Fee Deposits for this hostel (ONLY Hostel Monitor and Hostel Super authorized)
+    // 2. Load Pending Establishment Fee Deposits for this hostel
     setPendingEstDeposits(dbService.getDeposits(d =>
       d.hostelId === effectiveHostelId &&
       d.depositType === 'Establishment Fee Deposit' &&
       d.status === 'pending'
     ));
+
+    // 3. Update opt-in status
+    setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
   };
 
   const handleEstDepositDecision = (id, decision) => {
@@ -93,46 +119,53 @@ export default function HostelMonitorDashboard() {
     setTimeout(() => setDepositActionMessage(''), 3500);
   };
 
-  const handleDepositSubmit = (e) => {
-    e.preventDefault();
-    if (!newDeposit.amount || !newDeposit.trxId) return;
-
-    const entry = {
-      id: `DEP-${Date.now().toString().slice(-4)}`,
-      hostelId: effectiveHostelId,
-      studentId: userProfile?.id || userProfile?.loginId || 'monitor_101',
-      studentName: userProfile?.name || 'Aarav Patel',
-      rollNumber: userProfile?.rollNumber || '101',
-      userType: 'hostel_monitor',
-      roomNumber: userProfile?.roomNumber || '101',
-      depositType: newDeposit.depositType,
-      amount: Number(newDeposit.amount),
-      paymentMethod: newDeposit.paymentMethod,
-      trxId: newDeposit.trxId,
-      submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      status: 'pending',
-      approvedBy: null,
-      approvedAt: null
-    };
-
-    const updated = dbService.insertDeposit(entry);
-
+  const handleDepositSuccess = (entry, updated) => {
     // Refresh pending establishment deposits in state if Establishment Fee Deposit
-    const pending = updated.filter(d => 
+    const pending = (updated || dbService.getDeposits()).filter(d => 
       d.hostelId === effectiveHostelId && 
       d.depositType === 'Establishment Fee Deposit' && 
       d.status === 'pending'
     );
     setPendingEstDeposits(pending);
 
-    setShowDepositModal(false);
-    setNewDeposit({ depositType: 'Establishment Fee Deposit', amount: '', paymentMethod: 'bKash / Mobile Banking', trxId: '' });
-
     const approvers = entry.depositType === 'Establishment Fee Deposit'
-      ? 'Hostel Monitor (You may self-approve below) or Hostel Super'
+      ? 'Hostel Monitor or Hostel Super'
       : 'Meal Manager or Hostel Super';
-    setDepositSuccess(`Deposit slip of ৳${entry.amount} (${entry.depositType}) submitted successfully under Roll ${entry.rollNumber}. Awaiting verification by ${approvers}.`);
+    setDepositSuccess(`Deposit slip of ৳${entry.amount} (${entry.depositType}) submitted successfully under ${entry.studentName}. Awaiting verification by ${approvers}.`);
     setTimeout(() => setDepositSuccess(''), 5000);
+  };
+
+  const handleCreateBazar = (e) => {
+    e.preventDefault();
+    if (!newBazar.amount || !newBazar.itemsList) return;
+
+    const entry = {
+      id: `BAZ-${Date.now().toString().slice(-4)}`,
+      pti_id: effectivePtiId || userProfile?.pti_id || 'pti_dhaka',
+      hostelId: effectiveHostelId || 'hostel_01',
+      date: newBazar.date || new Date().toISOString().split('T')[0],
+      category: 'Daily Mess Bazar',
+      amount: Number(newBazar.amount),
+      items: newBazar.itemsList,
+      buyerName: userProfile?.name || 'Monitor / Manager',
+      buyerId: userProfile?.id || userProfile?.loginId || 'monitor_101',
+      voucherNo: newBazar.voucherNo || `BZ-${Date.now().toString().slice(-4)}`,
+      vendor: newBazar.vendor || 'Local Market Vendor',
+      enteredAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      notes: `Recorded via Hostel Monitor dashboard by ${userProfile?.name}`
+    };
+
+    dbService.insertBazarExpense(entry);
+    setShowBazarModal(false);
+    setNewBazar({
+      date: new Date().toISOString().split('T')[0],
+      amount: '',
+      itemsList: '',
+      voucherNo: '',
+      vendor: ''
+    });
+    setSuccessMessage(`Daily Bazar voucher of ৳${entry.amount} successfully recorded into hostel ledger.`);
+    setTimeout(() => setSuccessMessage(''), 4500);
   };
 
   const handleSubmitExpense = (e) => {
@@ -199,23 +232,47 @@ export default function HostelMonitorDashboard() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button 
-            variant="secondary" 
-            size="md" 
-            icon={Plus} 
+        {/* Action Buttons: Redesigned smaller, smarter, and perfectly aligned in a single horizontal row */}
+        <div className="flex flex-row gap-4 items-center flex-wrap sm:flex-nowrap">
+          {/* Submit Fee Deposit */}
+          <button 
+            type="button"
+            disabled={isDepositDisabled}
             onClick={() => setShowDepositModal(true)}
+            title={isDepositDisabled ? `Fee deposit is disabled: You have not opted in to eat meals for ${mealAutomationService.getMonthDisplayName(currentMonth)}.` : "Submit Fee Deposit Slip"}
+            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm ${
+              isDepositDisabled
+                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400'
+            }`}
           >
-            Submit Fee Deposit
-          </Button>
-          <Button 
-            variant="primary" 
-            size="md" 
-            icon={Plus} 
+            <Receipt className="w-4 h-4 text-slate-500" />
+            <span>Submit Fee Deposit</span>
+          </button>
+
+          {/* New Establishment Expense */}
+          <button 
+            type="button"
             onClick={() => setShowForm(!showForm)}
+            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 text-white transition-all shadow-sm ${
+              showForm 
+                ? 'bg-brand-navy hover:bg-slate-800' 
+                : 'bg-brand-teal hover:bg-teal-700'
+            }`}
           >
-            {showForm ? 'Close Entry Form' : 'New Establishment Expense'}
-          </Button>
+            <Wrench className="w-4 h-4" />
+            <span>{showForm ? 'Close Entry Form' : 'New Establishment Expense'}</span>
+          </button>
+
+          {/* Record Daily Bazar */}
+          <button 
+            type="button"
+            onClick={() => setShowBazarModal(true)}
+            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 bg-brand-gold hover:bg-yellow-600 text-white transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Record Daily Bazar</span>
+          </button>
         </div>
       </div>
 
@@ -531,73 +588,108 @@ export default function HostelMonitorDashboard() {
         </div>
       </Card>
 
-      {/* Modal: Submit Fee Deposit Slip (T3 Hostel Monitor Pays Personal Fees) */}
-      {showDepositModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-dropdown p-6 space-y-4">
+      {/* Modal: Fee Deposit (Dynamic Super Logic & Hostel Picker) */}
+      <FeeDepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        userProfile={userProfile}
+        effectiveHostelId={effectiveHostelId}
+        effectivePtiId={effectivePtiId}
+        targetMonth={currentMonth}
+        onSuccess={handleDepositSuccess}
+      />
+
+      {/* Modal: Record Daily Mess Bazar */}
+      {showBazarModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Submit Fee Deposit Slip</h3>
-                <p className="text-xs text-slate-500">Boarder Fee Deposit for {userProfile?.name} (Roll: {userProfile?.rollNumber || '101'})</p>
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-brand-gold" />
+                <h3 className="font-bold text-slate-900 text-base font-heading">Record Daily Mess Bazar</h3>
               </div>
-              <button onClick={() => setShowDepositModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button 
+                type="button"
+                onClick={() => setShowBazarModal(false)} 
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+              >
+                ✕
+              </button>
             </div>
-            <form onSubmit={handleDepositSubmit} className="space-y-3.5">
+
+            <form onSubmit={handleCreateBazar} className="space-y-3.5">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Deposit Type</label>
-                <select
-                  value={newDeposit.depositType}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, depositType: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
-                >
-                  <option>Mess Fee Deposit</option>
-                  <option>Establishment Fee Deposit</option>
-                </select>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Purchase Date</label>
+                <input
+                  type="date"
+                  required
+                  value={newBazar.date}
+                  onChange={(e) => setNewBazar({ ...newBazar, date: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Amount Deposited (৳)</label>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Total Bazar Expense (৳)</label>
                 <input
                   type="number"
                   min="1"
                   required
-                  placeholder="e.g. 3000"
-                  value={newDeposit.amount}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono font-bold focus:outline-none focus:border-brand-600"
+                  placeholder="e.g. 3500"
+                  value={newBazar.amount}
+                  onChange={(e) => setNewBazar({ ...newBazar, amount: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-gold"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Payment Channel</label>
-                <select
-                  value={newDeposit.paymentMethod}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, paymentMethod: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
-                >
-                  <option>bKash / Mobile Banking</option>
-                  <option>Nagad</option>
-                  <option>Rocket</option>
-                  <option>Bank Challan / Slip</option>
-                  <option>Cash at Warden Office</option>
-                </select>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Items Breakdown (Detailed)</label>
+                <textarea
+                  rows={3}
+                  required
+                  placeholder="e.g. Rice 25kg, Chicken 8kg, Onion 5kg, Oil 3L, Spices..."
+                  value={newBazar.itemsList}
+                  onChange={(e) => setNewBazar({ ...newBazar, itemsList: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Transaction ID / Bank Challan No.</label>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Vendor / Store Name</label>
                 <input
                   type="text"
-                  required
-                  placeholder="e.g. TRX982736481 or CHLN-881"
-                  value={newDeposit.trxId}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, trxId: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:border-brand-600"
+                  placeholder="e.g. Karwan Bazar Wholesale"
+                  value={newBazar.vendor}
+                  onChange={(e) => setNewBazar({ ...newBazar, vendor: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={() => setShowDepositModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary" size="sm" icon={Send}>Submit Deposit</Button>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Receipt / Memo Number</label>
+                <input
+                  type="text"
+                  placeholder="e.g. MEMO-8821"
+                  value={newBazar.voucherNo}
+                  onChange={(e) => setNewBazar({ ...newBazar, voucherNo: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-brand-gold"
+                />
+              </div>
+
+              <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowBazarModal(false)}
+                  className="px-4 py-2 text-sm font-medium rounded-md font-heading bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium rounded-md font-heading bg-brand-gold hover:bg-yellow-600 text-white transition-all shadow-sm"
+                >
+                  Save Bazar Record
+                </button>
               </div>
             </form>
           </div>

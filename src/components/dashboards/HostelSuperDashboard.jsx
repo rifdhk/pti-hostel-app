@@ -22,7 +22,8 @@ import {
   Search,
   Filter,
   ShieldCheck,
-  Trash2
+  Trash2,
+  Receipt
 } from 'lucide-react';
 import Card from '../common/Card';
 import StatCard from '../common/StatCard';
@@ -34,6 +35,7 @@ import UserEditModal from '../common/UserEditModal';
 import UserDeleteConfirmModal from '../common/UserDeleteConfirmModal';
 import UserProfileModal from '../common/UserProfileModal';
 import NextDayMealToggle from '../common/NextDayMealToggle';
+import FeeDepositModal from '../common/FeeDepositModal';
 import { useAuth, USER_ROLES } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
@@ -53,7 +55,24 @@ import {
 
 export default function HostelSuperDashboard() {
   const { t } = useTranslation();
-  const { userProfile, effectiveHostelId, adminDeleteUser } = useAuth();
+  const { userProfile, effectiveHostelId, effectivePtiId, adminDeleteUser } = useAuth();
+
+  const currentMonth = mealAutomationService.getCurrentMonth();
+  const monthDisplayName = mealAutomationService.getMonthDisplayName(currentMonth);
+  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const isDepositDisabled = !isOptedIn;
+
+  const handleToggleOptIn = () => {
+    const next = !isOptedIn;
+    mealAutomationService.setSuperMealOptIn(userProfile, next, currentMonth);
+    setIsOptedIn(next);
+    setDecisionSuccess(next 
+      ? `Hostel Super dining activated for ${monthDisplayName}. "Submit Fee Deposit" button is now ACTIVE.`
+      : `Hostel Super dining paused for ${monthDisplayName}. "Submit Fee Deposit" button is now DISABLED.`
+    );
+    setTimeout(() => setDecisionSuccess(''), 4500);
+  };
 
   const ROLE_DEFINITIONS = [
     { id: USER_ROLES.SUPERINTENDENT, label: t('roles.superintendent') },
@@ -124,15 +143,24 @@ export default function HostelSuperDashboard() {
     const handleUsersChanged = () => loadHostelData();
     const handleDepositsChanged = () => loadHostelData();
     const handleHostelsChanged = () => loadHostelData();
+    const handleMealsChanged = () => {
+      setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+    };
+
     window.addEventListener('pti_users_changed', handleUsersChanged);
     window.addEventListener('pti_deposits_changed', handleDepositsChanged);
     window.addEventListener('pti_hostels_changed', handleHostelsChanged);
+    window.addEventListener('pti_meals_changed', handleMealsChanged);
+    window.addEventListener('pti_super_opt_in_changed', handleMealsChanged);
+
     return () => {
       window.removeEventListener('pti_users_changed', handleUsersChanged);
       window.removeEventListener('pti_deposits_changed', handleDepositsChanged);
       window.removeEventListener('pti_hostels_changed', handleHostelsChanged);
+      window.removeEventListener('pti_meals_changed', handleMealsChanged);
+      window.removeEventListener('pti_super_opt_in_changed', handleMealsChanged);
     };
-  }, [effectiveHostelId]);
+  }, [effectiveHostelId, userProfile, currentMonth]);
 
   const loadHostelData = () => {
     // 1. Load Hostels & pick this assigned hostel
@@ -154,6 +182,9 @@ export default function HostelSuperDashboard() {
     // 6. Load Bazar & Meals for financial statements
     setBazarExpenses(dbService.getBazarExpenses(b => b.hostelId === effectiveHostelId));
     setMealSheets(dbService.getMealSheets(m => m.hostelId === effectiveHostelId));
+
+    // 7. Update Super meal opt-in status
+    setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
   };
 
   // Dynamic calculations for reporting
@@ -443,10 +474,37 @@ export default function HostelSuperDashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-slate-500">Hall Code: <strong className="text-slate-800 font-mono">{hostelInfo?.code}</strong></span>
-          <span className="text-slate-300">|</span>
-          <span className="text-slate-500">Warden: <strong className="text-slate-800">{userProfile?.name}</strong></span>
+        <div className="flex flex-row gap-4 items-center flex-wrap sm:flex-nowrap">
+          {/* Submit Fee Deposit - Dynamic for Super */}
+          <button
+            type="button"
+            disabled={isDepositDisabled}
+            onClick={() => setShowDepositModal(true)}
+            title={isDepositDisabled ? `Fee deposit is disabled: You have not opted in to eat meals for ${monthDisplayName}.` : "Submit personal fee deposit slip"}
+            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm ${
+              isDepositDisabled
+                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                : 'bg-brand-gold hover:bg-yellow-600 text-white'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            <span>Submit Fee Deposit</span>
+          </button>
+
+          {/* Monthly Meal Status Opt-In Toggle */}
+          <button
+            type="button"
+            onClick={handleToggleOptIn}
+            title={isOptedIn ? `Currently opted in for ${monthDisplayName} meals. Click to pause dining.` : `Click to opt in and start meals for ${monthDisplayName}.`}
+            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm border ${
+              isOptedIn
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <Utensils className="w-4 h-4 text-brand-teal" />
+            <span>{isOptedIn ? `Dining Active (${monthDisplayName})` : `Start Meals (${monthDisplayName})`}</span>
+          </button>
         </div>
       </div>
 
@@ -1136,6 +1194,21 @@ export default function HostelSuperDashboard() {
         userId={viewingUserId}
         isOpen={Boolean(viewingUserId)}
         onClose={() => setViewingUserId(null)}
+      />
+
+      {/* Modal: Fee Deposit (Dynamic Super Logic & Hostel Selector) */}
+      <FeeDepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        userProfile={userProfile}
+        effectiveHostelId={effectiveHostelId}
+        effectivePtiId={effectivePtiId}
+        targetMonth={currentMonth}
+        onSuccess={(entry, updated) => {
+          setDeposits(updated.filter(d => d.hostelId === effectiveHostelId));
+          setDecisionSuccess(`Personal deposit of ৳${entry.amount} submitted successfully for ${entry.hostelName || 'Hostel'}.`);
+          setTimeout(() => setDecisionSuccess(''), 4500);
+        }}
       />
 
     </div>

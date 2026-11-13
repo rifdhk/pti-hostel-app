@@ -472,5 +472,126 @@ export const mealAutomationService = {
         isSurplus: false,
       };
     }
+  },
+
+  /**
+   * Current academic / calendar month string in YYYY-MM format
+   */
+  getCurrentMonth: () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  },
+
+  /**
+   * Human readable month and year (e.g., "November 2026")
+   */
+  getMonthDisplayName: (monthStr = null) => {
+    const m = monthStr || mealAutomationService.getCurrentMonth();
+    const parts = m.split('-');
+    const year = parseInt(parts[0], 10) || new Date().getFullYear();
+    const monthNum = parseInt(parts[1], 10) || (new Date().getMonth() + 1);
+    const date = new Date(year, monthNum - 1, 1);
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  },
+
+  /**
+   * Checks whether a Superintendent or Hostel Super has explicitly opted in to eat meals
+   * in a given month. Non-super users (boarders, monitors, managers) return true by default.
+   */
+  hasSuperOptedInToMeals: (userProfile, targetMonth = null) => {
+    if (!userProfile) return false;
+    const role = (userProfile.role || '').toLowerCase();
+    const isSuper = role.includes('superintendent') || role.includes('hostel_super') || role === 'admin';
+    if (!isSuper) return true; // Boarders, monitors, and managers are regular mess diners
+
+    const month = targetMonth || mealAutomationService.getCurrentMonth();
+    const userId = userProfile.id || userProfile.loginId || userProfile.rollNumber || 'super';
+    const userRoll = String(userProfile.rollNumber || userProfile.loginId || '');
+
+    // 1. Explicit local storage preference takes top precedence
+    const explicitKey = `pti_super_meal_opt_in_${userId}_${month}`;
+    const explicitPref = localStorage.getItem(explicitKey);
+    if (explicitPref === 'true') return true;
+    if (explicitPref === 'false') return false;
+
+    // Generic key without userId fallback
+    const genericKey = `pti_super_meal_opt_in_${month}`;
+    const genericPref = localStorage.getItem(genericKey);
+    if (genericPref === 'true') return true;
+    if (genericPref === 'false') return false;
+
+    // 2. Check if user has active next-day meal intentions in that month
+    const nextMeals = dbService.getNextDayMealsMap();
+    const nextDate = mealAutomationService.getNextDayDate();
+    if (nextDate.startsWith(month)) {
+      for (const [key, item] of Object.entries(nextMeals)) {
+        if (
+          key.includes(userRoll) || 
+          key.includes('STAFF-T1') || 
+          key.includes('admin') || 
+          key.includes('hostel_super') ||
+          (userProfile.id && key.includes(userProfile.id))
+        ) {
+          if (item && (item.breakfast || item.lunch || item.dinner)) {
+            return true;
+          }
+        }
+      }
+    }
+
+    // 3. Check if user has meal sheet entries in that month with meals taken
+    const sheets = dbService.getMealSheets();
+    const monthSheets = sheets.filter(s => s.date && s.date.startsWith(month));
+    for (const sheet of monthSheets) {
+      if (Array.isArray(sheet.records)) {
+        const rec = sheet.records.find(r =>
+          (userRoll && String(r.rollNumber) === userRoll) ||
+          (r.studentId && (r.studentId === userId || r.studentId === userProfile.id)) ||
+          (role.includes('superintendent') && (r.rollNumber === 'STAFF-T1' || r.studentId === 'admin')) ||
+          (role.includes('hostel_super') && (r.rollNumber === 'hostel_super' || r.studentId === 'hostel_super'))
+        );
+        if (rec && (rec.breakfast || rec.lunch || rec.dinner || Number(rec.total || 0) > 0)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  },
+
+  /**
+   * Sets the explicit opt-in preference for a Superintendent or Hostel Super for a given month.
+   */
+  setSuperMealOptIn: (userProfile, optedIn = true, targetMonth = null) => {
+    if (!userProfile) return false;
+    const month = targetMonth || mealAutomationService.getCurrentMonth();
+    const userId = userProfile.id || userProfile.loginId || userProfile.rollNumber || 'super';
+    const explicitKey = `pti_super_meal_opt_in_${userId}_${month}`;
+    localStorage.setItem(explicitKey, optedIn ? 'true' : 'false');
+    localStorage.setItem(`pti_super_meal_opt_in_${month}`, optedIn ? 'true' : 'false');
+
+    const role = (userProfile.role || '').toLowerCase();
+    const isSuperintendent = role.includes('superintendent') || role === 'admin';
+    const rollNumber = userProfile.rollNumber || (isSuperintendent ? 'STAFF-T1' : 'hostel_super');
+    const hostelId = localStorage.getItem('pti_superintendent_chosen_hostel') || userProfile.hostelId || 'hostel_01';
+
+    try {
+      mealAutomationService.saveManualNextDayMeal(
+        hostelId,
+        rollNumber,
+        { breakfast: optedIn, lunch: optedIn, dinner: optedIn },
+        {
+          name: userProfile.name,
+          role: userProfile.role,
+          isSuperintendent,
+          id: userProfile.id || rollNumber
+        }
+      );
+    } catch {}
+
+    window.dispatchEvent(new CustomEvent('pti_super_opt_in_changed', { detail: { userId, month, optedIn } }));
+    window.dispatchEvent(new CustomEvent('pti_meals_changed'));
+    window.dispatchEvent(new CustomEvent('pti_deposits_changed'));
+    return optedIn;
   }
 };

@@ -29,6 +29,7 @@ import Badge from '../common/Badge';
 import AvatarRenderer from '../Avatars/AvatarRenderer';
 import { normalizeGender } from '../../constants/avatars';
 import NextDayMealToggle from '../common/NextDayMealToggle';
+import FeeDepositModal from '../common/FeeDepositModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
@@ -40,7 +41,10 @@ import {
 } from '../../utils/exportReports';
 
 export default function MealManagerDashboard() {
-  const { userProfile, effectiveHostelId } = useAuth();
+  const { userProfile, effectiveHostelId, effectivePtiId, isSuperintendent, isHostelSuper } = useAuth();
+  const role = (userProfile?.role || '').toLowerCase();
+  const isSuper = isSuperintendent || isHostelSuper || role.includes('superintendent') || role.includes('hostel_super') || role === 'admin';
+  const currentMonth = mealAutomationService.getCurrentMonth();
 
   const [bazarLogs, setBazarLogs] = useState([]);
   const [mealSheet, setMealSheet] = useState(null);
@@ -52,6 +56,10 @@ export default function MealManagerDashboard() {
   const [showBazarModal, setShowBazarModal] = useState(false);
   const [lockNotice, setLockNotice] = useState('');
   const [exportSuccessMsg, setExportSuccessMsg] = useState('');
+
+  // Dynamic fee deposit opt-in status for Supers
+  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+  const isDepositDisabled = isSuper && !isOptedIn;
 
   // Date Range Filtering for Matrix Export
   const [reportStartDate, setReportStartDate] = useState('');
@@ -65,15 +73,9 @@ export default function MealManagerDashboard() {
     voucherNo: ''
   });
 
-  // Self Fee Deposit Modal State (T4 Meal Manager pays personal boarder fees)
+  // Self Fee Deposit Modal State
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState('');
-  const [newDeposit, setNewDeposit] = useState({
-    depositType: 'Mess Fee Deposit',
-    amount: '',
-    paymentMethod: 'bKash / Mobile Banking',
-    trxId: ''
-  });
 
   useEffect(() => {
     loadMealData();
@@ -81,9 +83,20 @@ export default function MealManagerDashboard() {
     const handleDepositsUpdated = () => {
       loadMealData();
     };
+    const handleMealsUpdated = () => {
+      setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+    };
+
     window.addEventListener('pti_deposits_changed', handleDepositsUpdated);
-    return () => window.removeEventListener('pti_deposits_changed', handleDepositsUpdated);
-  }, [effectiveHostelId]);
+    window.addEventListener('pti_meals_changed', handleMealsUpdated);
+    window.addEventListener('pti_super_opt_in_changed', handleMealsUpdated);
+
+    return () => {
+      window.removeEventListener('pti_deposits_changed', handleDepositsUpdated);
+      window.removeEventListener('pti_meals_changed', handleMealsUpdated);
+      window.removeEventListener('pti_super_opt_in_changed', handleMealsUpdated);
+    };
+  }, [effectiveHostelId, userProfile, currentMonth]);
 
   const loadMealData = () => {
     // 1. Dynamic rate calculation
@@ -109,6 +122,9 @@ export default function MealManagerDashboard() {
       d.depositType === 'Mess Fee Deposit' &&
       d.status === 'pending'
     ));
+
+    // 6. Update opt-in status
+    setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
   };
 
   const handleMessDepositDecision = (id, decision) => {
@@ -127,45 +143,18 @@ export default function MealManagerDashboard() {
     setTimeout(() => setDepositActionMessage(''), 3500);
   };
 
-  const handleDepositSubmit = (e) => {
-    e.preventDefault();
-    if (!newDeposit.amount || !newDeposit.trxId) return;
-
-    const entry = {
-      id: `DEP-${Date.now().toString().slice(-4)}`,
-      hostelId: effectiveHostelId,
-      studentId: userProfile?.id || userProfile?.loginId || 'manager_102',
-      studentName: userProfile?.name || 'Rohan Deshmukh',
-      rollNumber: userProfile?.rollNumber || '102',
-      userType: 'meal_manager',
-      roomNumber: userProfile?.roomNumber || '102',
-      depositType: newDeposit.depositType,
-      amount: Number(newDeposit.amount),
-      paymentMethod: newDeposit.paymentMethod,
-      trxId: newDeposit.trxId,
-      submittedAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      status: 'pending',
-      approvedBy: null,
-      approvedAt: null
-    };
-
-    const updated = dbService.insertDeposit(entry);
-
-    // Refresh pending mess deposits in state if Mess Fee Deposit
-    const pending = updated.filter(d => 
+  const handleDepositSuccess = (entry, updated) => {
+    const pending = (updated || dbService.getDeposits()).filter(d => 
       d.hostelId === effectiveHostelId && 
       d.depositType === 'Mess Fee Deposit' && 
       d.status === 'pending'
     );
     setPendingMessDeposits(pending);
 
-    setShowDepositModal(false);
-    setNewDeposit({ depositType: 'Mess Fee Deposit', amount: '', paymentMethod: 'bKash / Mobile Banking', trxId: '' });
-
     const approvers = entry.depositType === 'Mess Fee Deposit'
-      ? 'Meal Manager (You may self-approve below) or Hostel Super'
+      ? 'Meal Manager or Hostel Super'
       : 'Hostel Monitor or Hostel Super';
-    setDepositSuccess(`Deposit slip of ৳${entry.amount} (${entry.depositType}) submitted successfully under Roll ${entry.rollNumber}. Awaiting verification by ${approvers}.`);
+    setDepositSuccess(`Deposit slip of ৳${entry.amount} (${entry.depositType}) submitted successfully under ${entry.studentName}. Awaiting verification by ${approvers}.`);
     setTimeout(() => setDepositSuccess(''), 5000);
   };
 
@@ -431,13 +420,33 @@ export default function MealManagerDashboard() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <Button variant="secondary" size="md" icon={Plus} onClick={() => setShowDepositModal(true)}>
-            Submit Fee Deposit
-          </Button>
-          <Button variant="primary" size="md" icon={Plus} onClick={() => setShowBazarModal(true)}>
-            Record Daily Bazar
-          </Button>
+        {/* Action Buttons: Redesigned smaller, smarter, and perfectly aligned in a single horizontal row */}
+        <div className="flex flex-row gap-4 items-center flex-wrap sm:flex-nowrap">
+          {/* Submit Fee Deposit */}
+          <button
+            type="button"
+            disabled={isDepositDisabled}
+            onClick={() => setShowDepositModal(true)}
+            title={isDepositDisabled ? `Fee deposit is disabled: You have not opted in to eat meals for ${mealAutomationService.getMonthDisplayName(currentMonth)}.` : "Submit personal fee deposit slip"}
+            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm ${
+              isDepositDisabled
+                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400'
+            }`}
+          >
+            <Receipt className="w-4 h-4 text-slate-500" />
+            <span>Submit Fee Deposit</span>
+          </button>
+
+          {/* Record Daily Bazar */}
+          <button
+            type="button"
+            onClick={() => setShowBazarModal(true)}
+            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 bg-brand-gold hover:bg-yellow-600 text-white transition-all shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Record Daily Bazar</span>
+          </button>
         </div>
       </div>
 
@@ -1052,78 +1061,16 @@ export default function MealManagerDashboard() {
         </div>
       )}
 
-      {/* Modal: Submit Fee Deposit Slip (T4 Meal Manager Pays Personal Fees) */}
-      {showDepositModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-dropdown p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div>
-                <h3 className="font-bold text-slate-900 text-base">Submit Fee Deposit Slip</h3>
-                <p className="text-xs text-slate-500">Boarder Fee Deposit for {userProfile?.name} (Roll: {userProfile?.rollNumber || '102'})</p>
-              </div>
-              <button onClick={() => setShowDepositModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
-            </div>
-            <form onSubmit={handleDepositSubmit} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Deposit Type</label>
-                <select
-                  value={newDeposit.depositType}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, depositType: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
-                >
-                  <option>Mess Fee Deposit</option>
-                  <option>Establishment Fee Deposit</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Amount Deposited (৳)</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  placeholder="e.g. 3000"
-                  value={newDeposit.amount}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono font-bold focus:outline-none focus:border-brand-600"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Payment Channel</label>
-                <select
-                  value={newDeposit.paymentMethod}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, paymentMethod: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
-                >
-                  <option>bKash / Mobile Banking</option>
-                  <option>Nagad</option>
-                  <option>Rocket</option>
-                  <option>Bank Challan / Slip</option>
-                  <option>Cash at Warden Office</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Transaction ID / Bank Challan No.</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. TRX982736481 or CHLN-881"
-                  value={newDeposit.trxId}
-                  onChange={(e) => setNewDeposit({ ...newDeposit, trxId: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:border-brand-600"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={() => setShowDepositModal(false)}>Cancel</Button>
-                <Button type="submit" variant="primary" size="sm" icon={Send}>Submit Deposit</Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Modal: Fee Deposit (Dynamic Super Logic & Hostel Picker) */}
+      <FeeDepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        userProfile={userProfile}
+        effectiveHostelId={effectiveHostelId}
+        effectivePtiId={effectivePtiId}
+        targetMonth={currentMonth}
+        onSuccess={handleDepositSuccess}
+      />
 
     </div>
   );

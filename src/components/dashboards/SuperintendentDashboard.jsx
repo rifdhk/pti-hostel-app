@@ -23,7 +23,8 @@ import {
   Calendar,
   Edit3,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Receipt
 } from 'lucide-react';
 import Card from '../common/Card';
 import StatCard from '../common/StatCard';
@@ -34,6 +35,7 @@ import UserEditModal from '../common/UserEditModal';
 import UserDeleteConfirmModal from '../common/UserDeleteConfirmModal';
 import UserProfileModal from '../common/UserProfileModal';
 import NextDayMealToggle from '../common/NextDayMealToggle';
+import FeeDepositModal from '../common/FeeDepositModal';
 import {
   GENDER_OPTIONS,
   normalizeGender,
@@ -85,6 +87,24 @@ export default function SuperintendentDashboard() {
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
   const [exportSuccessMsg, setExportSuccessMsg] = useState('');
+
+  // Dynamic fee deposit opt-in status for Superintendent
+  const currentMonth = mealAutomationService.getCurrentMonth();
+  const monthDisplayName = mealAutomationService.getMonthDisplayName(currentMonth);
+  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const isDepositDisabled = !isOptedIn;
+
+  const handleToggleOptIn = () => {
+    const next = !isOptedIn;
+    mealAutomationService.setSuperMealOptIn(userProfile, next, currentMonth);
+    setIsOptedIn(next);
+    setSettingsSuccess(next 
+      ? `Superintendent dining activated for ${monthDisplayName}. "Submit Fee Deposit" button is now ACTIVE.`
+      : `Superintendent dining paused for ${monthDisplayName}. "Submit Fee Deposit" button is now DISABLED.`
+    );
+    setTimeout(() => setSettingsSuccess(''), 4500);
+  };
 
   // Master Global Settings (Scoped to tenant pti_id)
   const [settings, setSettings] = useState(() => mealAutomationService.getSettings(effectivePtiId));
@@ -171,15 +191,24 @@ export default function SuperintendentDashboard() {
     const handleSettingsChanged = () => {
       setSettings(mealAutomationService.getSettings(effectivePtiId));
     };
+    const handleMealsChanged = () => {
+      setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+    };
+
     window.addEventListener('pti_users_changed', handleUsersChanged);
     window.addEventListener('pti_hostels_changed', handleHostelsChanged);
     window.addEventListener('pti_settings_changed', handleSettingsChanged);
+    window.addEventListener('pti_meals_changed', handleMealsChanged);
+    window.addEventListener('pti_super_opt_in_changed', handleMealsChanged);
+
     return () => {
       window.removeEventListener('pti_users_changed', handleUsersChanged);
       window.removeEventListener('pti_hostels_changed', handleHostelsChanged);
       window.removeEventListener('pti_settings_changed', handleSettingsChanged);
+      window.removeEventListener('pti_meals_changed', handleMealsChanged);
+      window.removeEventListener('pti_super_opt_in_changed', handleMealsChanged);
     };
-  }, [effectivePtiId]);
+  }, [effectivePtiId, userProfile, currentMonth]);
 
   const loadAllData = () => {
     const tenantPtiId = effectivePtiId || userProfile?.pti_id || 'pti_dhaka';
@@ -195,6 +224,9 @@ export default function SuperintendentDashboard() {
     setDeposits(dbService.getDeposits(d => !tenantPtiId || d.pti_id === tenantPtiId));
     setBazarExpenses(dbService.getBazarExpenses(b => !tenantPtiId || b.pti_id === tenantPtiId));
     setMealSheets(dbService.getMealSheets(m => !tenantPtiId || m.pti_id === tenantPtiId));
+
+    // Update Super meal opt-in status
+    setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
   };
 
   // Financial Report Export Handlers & Date Filtering
@@ -612,13 +644,55 @@ export default function SuperintendentDashboard() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <Button variant="secondary" size="md" icon={UserPlus} onClick={() => setShowUserModal(true)}>
-            {t('dashboard.addUser')}
-          </Button>
-          <Button variant="primary" size="md" icon={Plus} onClick={() => setShowHostelModal(true)}>
-            {t('dashboard.createHostel')}
-          </Button>
+        <div className="flex flex-row gap-4 items-center flex-wrap sm:flex-nowrap">
+          {/* Submit Fee Deposit - Dynamic for Super */}
+          <button
+            type="button"
+            disabled={isDepositDisabled}
+            onClick={() => setShowDepositModal(true)}
+            title={isDepositDisabled ? `Fee deposit is disabled: You have not opted in to eat meals for ${monthDisplayName}.` : "Submit personal fee deposit slip"}
+            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm ${
+              isDepositDisabled
+                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
+                : 'bg-brand-gold hover:bg-yellow-600 text-white'
+            }`}
+          >
+            <Receipt className="w-4 h-4" />
+            <span>Submit Fee Deposit</span>
+          </button>
+
+          {/* Monthly Meal Status Opt-In Toggle */}
+          <button
+            type="button"
+            onClick={handleToggleOptIn}
+            title={isOptedIn ? `Currently opted in for ${monthDisplayName} meals. Click to pause dining.` : `Click to opt in and start meals for ${monthDisplayName}.`}
+            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm border ${
+              isOptedIn
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+            }`}
+          >
+            <Utensils className="w-4 h-4 text-brand-teal" />
+            <span>{isOptedIn ? `Dining Active (${monthDisplayName})` : `Start Meals (${monthDisplayName})`}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowUserModal(true)}
+            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-sm transition-all"
+          >
+            <UserPlus className="w-4 h-4 text-slate-500" />
+            <span>{t('dashboard.addUser')}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowHostelModal(true)}
+            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 bg-brand-navy hover:bg-slate-800 text-white shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>{t('dashboard.createHostel')}</span>
+          </button>
         </div>
       </div>
 
@@ -1678,6 +1752,21 @@ export default function SuperintendentDashboard() {
         userId={viewingUserId}
         isOpen={Boolean(viewingUserId)}
         onClose={() => setViewingUserId(null)}
+      />
+
+      {/* Modal: Fee Deposit (Dynamic Super Logic & Hostel Selector) */}
+      <FeeDepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        userProfile={userProfile}
+        effectiveHostelId={selectedReportHostelId || 'hostel_01'}
+        effectivePtiId={effectivePtiId}
+        targetMonth={currentMonth}
+        onSuccess={(entry, updated) => {
+          setDeposits(updated);
+          setSettingsSuccess(`Personal deposit of ৳${entry.amount} submitted successfully for ${entry.hostelName || 'Hostel'}.`);
+          setTimeout(() => setSettingsSuccess(''), 4500);
+        }}
       />
 
     </div>
