@@ -24,7 +24,7 @@ export const SEED_PTIS = [
     createdAt: '2026-01-10',
     settings: {
       instituteName: "Primary Teachers Training Institutes",
-      appTitle: "Hostel Management App",
+      appTitle: "PTI Hostel Management App",
       instituteShortName: "PTI",
       fixedEstablishmentFee: 1200,
       cutOffTime: "20:00",

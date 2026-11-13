@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS = {
   simulateCutOffExpired: false,       // Allows testing cut-off rule at any hour
   fixedEstablishmentFee: 1200,        // Standard term establishment fee
   instituteName: "Primary Teachers' Training Institute (PTI)", // Dynamic white-label institute name
-  appTitle: 'PTI & Hostel Management System',                // Dynamic white-label application title
+  appTitle: 'PTI Hostel Management App',                // Dynamic white-label application title
   instituteShortName: 'PTI',                                 // Short abbreviation
 };
 

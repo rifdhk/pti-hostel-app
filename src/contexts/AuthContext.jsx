@@ -98,13 +98,13 @@ export function AuthProvider({ children }) {
       if (!eventPtiId || eventPtiId === effectivePtiId) {
         const fresh = mealAutomationService.getInstituteSettings(effectivePtiId);
         setInstituteSettings(fresh);
-        document.title = fresh.appTitle || "PTI & Hostel Management System";
+        document.title = fresh.appTitle && !fresh.appTitle.includes("Dhaka PTI") ? fresh.appTitle : "PTI Hostel Management App";
       }
     };
 
     const current = mealAutomationService.getInstituteSettings(effectivePtiId);
     setInstituteSettings(current);
-    document.title = isMasterAdmin ? "Central Master Admin | PTI Hostel System" : (current.appTitle || "PTI & Hostel Management System");
+    document.title = isMasterAdmin ? "Central Master Admin | PTI Hostel System" : (current.appTitle && !current.appTitle.includes("Dhaka PTI") ? current.appTitle : "PTI Hostel Management App");
 
     window.addEventListener('pti_settings_changed', handleSettingsChanged);
     return () => window.removeEventListener('pti_settings_changed', handleSettingsChanged);
@@ -114,7 +114,7 @@ export function AuthProvider({ children }) {
     const updated = mealAutomationService.updateInstituteSettings(updates, effectivePtiId);
     const fresh = mealAutomationService.getInstituteSettings(effectivePtiId);
     setInstituteSettings(fresh);
-    document.title = fresh.appTitle || "PTI & Hostel Management System";
+    document.title = fresh.appTitle && !fresh.appTitle.includes("Dhaka PTI") ? fresh.appTitle : "PTI Hostel Management App";
     return updated;
   };
 
