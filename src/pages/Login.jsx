@@ -13,7 +13,6 @@ import {
   GraduationCap, 
   KeyRound,
   Users,
-  Sparkles,
   X
 } from 'lucide-react';
 import Button from '../components/common/Button';
@@ -52,9 +51,6 @@ export default function Login() {
   const getIdentifierHint = (val) => {
     const trimmed = val.trim().toLowerCase();
     if (!trimmed) return null;
-    if (trimmed === 'master' || trimmed === 'master@pti.gov.bd') {
-      return { label: 'Tier 0 • Master Admin (Central Admin)', variant: 'teal', icon: Sparkles };
-    }
     if (trimmed === 'admin' || trimmed === 'superintendent@institution.edu') {
       return { label: 'Tier 1 • Superintendent Account', variant: 'teal', icon: ShieldCheck };
     }
@@ -76,7 +72,6 @@ export default function Login() {
     return { label: 'Institutional Credential', variant: 'neutral', icon: User };
   };
 
-  const isMasterLogin = identifier.trim().toLowerCase() === 'master' || identifier.trim().toLowerCase() === 'master@pti.gov.bd';
   const detectedRole = getIdentifierHint(identifier);
 
   const handleSubmit = async (e) => {
@@ -132,17 +127,13 @@ export default function Login() {
         {/* Emblem & Portal Title */}
         <div className="text-center">
           <div className="w-14 h-14 bg-brand-navy rounded-2xl mx-auto flex items-center justify-center text-white shadow-sm mb-3.5 transition-all hover:scale-105">
-            {isMasterLogin ? (
-              <Sparkles className="w-8 h-8 text-brand-gold" />
-            ) : (
-              <ShieldCheck className="w-8 h-8 text-brand-gold" />
-            )}
+            <ShieldCheck className="w-8 h-8 text-brand-gold" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">
-            {isMasterLogin ? "Central Master Admin" : "Primary Teachers Training Institutes"}
+            Primary Teachers Training Institutes
           </h1>
           <p className="text-xs text-slate-500 font-medium mt-1">
-            {isMasterLogin ? "Central Admin Control Portal (Tier 0)" : "Hostel Management App"}
+            Hostel Management App
           </p>
         </div>
 
@@ -175,15 +166,9 @@ export default function Login() {
                 <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600">
                   Select Role / Tier
                 </label>
-                {isMasterLogin && (
-                  <span className="text-[10px] font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <Sparkles className="w-3 h-3 text-teal-600" /> Master Admin Mode
-                  </span>
-                )}
               </div>
               <select
                 value={
-                  isMasterLogin ? 'master' :
                   identifier === 'admin' ? 'admin' :
                   identifier === 'hostel_super' ? 'hostel_super' :
                   identifier === 'monitor_101' || identifier === '101' ? 'monitor_101' :
@@ -193,17 +178,15 @@ export default function Login() {
                 }
                 onChange={(e) => {
                   const val = e.target.value;
-                  if (val === 'master') quickFill('master', '123456');
-                  else if (val === 'admin') quickFill('admin', '123456');
+                  if (val === 'admin') quickFill('admin', '123456');
                   else if (val === 'hostel_super') quickFill('hostel_super', '123456');
                   else if (val === 'monitor_101') quickFill('monitor_101', '123456');
                   else if (val === 'manager_102') quickFill('manager_102', '123456');
                   else if (val === '103') quickFill('103', '123456');
                   else if (val === '201') quickFill('201', '123456');
                 }}
-                className="w-full px-3 py-2.5 min-h-[44px] text-xs bg-slate-50 border border-slate-200/80 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-teal-600 focus:bg-white transition-all cursor-pointer"
+                className="w-full px-3 py-2.5 min-h-[44px] text-xs bg-slate-50 border border-slate-200/80 rounded-xl text-slate-900 font-semibold focus:outline-none focus:border-brand-gold focus:bg-white transition-all cursor-pointer"
               >
-                <option value="master">Master Admin Login</option>
                 <option value="admin">1. Superintendent (Tier 1)</option>
                 <option value="hostel_super">2. Hostel Super (Tier 2)</option>
                 <option value="monitor_101">3. Hostel Monitor (Tier 3)</option>
@@ -285,24 +268,6 @@ export default function Login() {
             </p>
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-left">
-              
-              {/* T0: Master Admin */}
-              <button
-                type="button"
-                onClick={() => quickFill('master', '123456')}
-                className={`col-span-2 sm:col-span-3 p-2.5 rounded-xl border text-xs min-h-[44px] transition-all cursor-pointer flex items-center justify-between ${
-                  isMasterLogin
-                    ? 'bg-slate-900 border-teal-500 text-teal-300 font-semibold shadow-xs'
-                    : 'bg-slate-900/95 border-slate-800 text-slate-200 hover:bg-slate-900'
-                }`}
-              >
-                <div className="flex items-center gap-2 text-teal-400 font-bold text-[11px]">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  0. Master Admin (Central Admin)
-                </div>
-                <div className="text-[10px] text-slate-400 font-mono">master • 123456</div>
-              </button>
-
               {/* T1: Superintendent */}
               <button
                 type="button"
@@ -406,28 +371,6 @@ export default function Login() {
               </button>
 
             </div>
-          </div>
-
-          {/* Master Admin Login Subtle Text Link */}
-          <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-center">
-            <button
-              type="button"
-              onClick={() => {
-                if (isMasterLogin) {
-                  quickFill('admin', '123456');
-                } else {
-                  quickFill('master', '123456');
-                }
-              }}
-              className="group inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-teal-700 transition-colors py-1.5 px-3 rounded-xl hover:bg-teal-50/70 cursor-pointer"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-teal-600 group-hover:scale-110 transition-transform" />
-              <span>
-                {isMasterLogin 
-                  ? '← Switch to Institutional / Student Login' 
-                  : 'Master Admin Login'}
-              </span>
-            </button>
           </div>
         </div>
 
