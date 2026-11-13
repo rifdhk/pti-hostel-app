@@ -139,18 +139,18 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="hidden md:flex w-64 bg-white border-r border-slate-100 flex-col h-screen sticky top-0 shrink-0 select-none">
+    <aside className="hidden md:flex w-64 bg-brand-navy text-white border-r border-slate-800 flex-col h-screen sticky top-0 shrink-0 select-none">
       {/* Brand Header */}
-      <div className="h-16 px-5 border-b border-slate-100 flex items-center justify-between">
+      <div className="h-16 px-5 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-2.5 overflow-hidden">
-          <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-xs shrink-0">
-            <ShieldCheck className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 rounded-xl bg-brand-gold flex items-center justify-center text-slate-900 shadow-xs shrink-0">
+            <ShieldCheck className="w-5 h-5 text-slate-900" />
           </div>
           <div className="overflow-hidden">
-            <h1 className="font-bold text-slate-900 text-xs tracking-tight leading-tight truncate" title={instituteName}>
+            <h1 className="font-bold text-white text-xs tracking-tight leading-tight truncate" title={instituteName}>
               {instituteName}
             </h1>
-            <p className="text-[10px] uppercase font-bold tracking-wider text-teal-600 truncate">{appTitle}</p>
+            <p className="text-[10px] uppercase font-bold tracking-wider text-brand-gold truncate">{appTitle}</p>
           </div>
         </div>
       </div>
@@ -173,8 +173,8 @@ export default function Sidebar() {
               className={({ isActive }) =>
                 `group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-150 ${
                   isActive
-                    ? 'bg-brand-50 text-brand-700 font-semibold'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    ? 'bg-slate-800 text-brand-gold font-semibold shadow-xs'
+                    : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                 }`
               }
             >
@@ -182,12 +182,12 @@ export default function Sidebar() {
                 <>
                   <div className="flex items-center gap-3">
                     <Icon className={`w-4 h-4 transition-colors ${
-                      isActive ? 'text-brand-600' : 'text-slate-400 group-hover:text-slate-600'
+                      isActive ? 'text-brand-gold' : 'text-slate-400 group-hover:text-slate-200'
                     }`} />
                     <span>{link.name}</span>
                   </div>
                   {isActive && (
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand-600"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-brand-gold"></span>
                   )}
                 </>
               )}
@@ -197,27 +197,27 @@ export default function Sidebar() {
       </div>
 
       {/* User / Session Footer */}
-      <div className="p-3 border-t border-slate-100 bg-slate-50/60">
+      <div className="p-3 border-t border-slate-800 bg-slate-900/60">
         {(() => {
           const displayName = sanitizeDisplayName(
             userProfile?.name || currentUser?.name,
             'User'
           ).replace(/Director General/g, 'Master Admin');
           return (
-        <div className="p-2.5 rounded-lg bg-white border border-slate-200/80 shadow-sm flex items-center justify-between">
+        <div className="p-2.5 rounded-lg bg-slate-800/90 border border-slate-700/70 shadow-sm flex items-center justify-between">
           <NavLink to="/profile" className="min-w-0 flex-1 mr-2 group flex items-center gap-2.5" title="View & Edit My Profile">
             <AvatarRenderer
               avatarId={(userProfile || currentUser)?.avatar_id}
               gender={(userProfile || currentUser)?.gender}
-              className="w-8 h-8 rounded-full border border-slate-200 shrink-0"
+              className="w-8 h-8 rounded-full border border-slate-700 shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-slate-900 truncate group-hover:text-brand-600 transition-colors">
+              <p className="text-xs font-semibold text-white truncate group-hover:text-brand-gold transition-colors">
                 {displayName}
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-brand-600 shrink-0"></span>
-                <p className="text-[11px] text-brand-700 font-medium truncate">
+                <span className="w-1.5 h-1.5 rounded-full bg-brand-gold shrink-0"></span>
+                <p className="text-[11px] text-slate-300 font-medium truncate">
                   {getTierLabel()} • {normalizeGender((userProfile || currentUser)?.gender)}
                 </p>
               </div>
@@ -226,7 +226,7 @@ export default function Sidebar() {
           <button
             onClick={logout}
             title={t('nav.logout')}
-            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
+            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 rounded-md transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>

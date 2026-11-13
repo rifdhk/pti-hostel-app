@@ -19,10 +19,12 @@ export default function Button({
   };
 
   const variantStyles = {
-    // Flat Minimalist Deep Teal Accent (#0D9488)
-    primary: 'bg-teal-600 hover:bg-teal-700 text-white shadow-sm focus:ring-teal-500/30',
+    // Warm Golden/Orange Accent matching new logo palette
+    primary: 'bg-brand-gold text-white hover:bg-yellow-600 shadow-sm focus:ring-amber-500/30',
     secondary: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 shadow-sm focus:ring-slate-300',
-    outline: 'border border-teal-600 text-teal-600 hover:bg-teal-50 focus:ring-teal-500/30',
+    outline: 'border border-brand-teal text-brand-teal hover:bg-teal-50 focus:ring-teal-500/30',
+    teal: 'bg-brand-teal text-white hover:bg-teal-700 shadow-sm focus:ring-teal-500/30',
+    navy: 'bg-brand-navy text-white hover:bg-slate-800 shadow-sm focus:ring-slate-700/30',
     danger: 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm focus:ring-rose-500/30',
     ghost: 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 focus:ring-slate-200',
   };

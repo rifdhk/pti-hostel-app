@@ -397,7 +397,7 @@ export default function MasterDashboard() {
         <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => setShowRegisterModal(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-teal-600 hover:bg-teal-700 shadow-sm hover:shadow transition-all duration-200 active:scale-95"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white bg-brand-gold hover:bg-yellow-600 shadow-sm hover:shadow transition-all duration-200 active:scale-95"
           >
             <Plus className="w-4 h-4 stroke-[2.5]" />
             Register New PTI
@@ -821,7 +821,7 @@ export default function MasterDashboard() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 transition-colors shadow-xs"
+                  className="px-5 py-2 text-xs font-bold rounded-xl text-white bg-brand-gold hover:bg-yellow-600 transition-colors shadow-xs"
                 >
                   Register PTI Institute
                 </button>
@@ -970,7 +970,7 @@ export default function MasterDashboard() {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold rounded-xl text-white bg-teal-600 hover:bg-teal-700 transition-colors shadow-xs"
+                  className="px-5 py-2 text-xs font-bold rounded-xl text-white bg-brand-gold hover:bg-yellow-600 transition-colors shadow-xs"
                 >
                   Appoint Superintendent
                 </button>

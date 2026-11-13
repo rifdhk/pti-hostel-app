@@ -131,11 +131,11 @@ export default function Login() {
         
         {/* Emblem & Portal Title */}
         <div className="text-center">
-          <div className={`w-14 h-14 ${isMasterLogin ? 'bg-slate-900' : 'bg-teal-600'} rounded-2xl mx-auto flex items-center justify-center text-white shadow-sm mb-3.5 transition-all hover:scale-105`}>
+          <div className="w-14 h-14 bg-brand-navy rounded-2xl mx-auto flex items-center justify-center text-white shadow-sm mb-3.5 transition-all hover:scale-105">
             {isMasterLogin ? (
-              <Sparkles className="w-8 h-8 text-teal-400" />
+              <Sparkles className="w-8 h-8 text-brand-gold" />
             ) : (
-              <ShieldCheck className="w-8 h-8 text-white" />
+              <ShieldCheck className="w-8 h-8 text-brand-gold" />
             )}
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-800">

@@ -7,6 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        'brand-navy': '#1e293b', // Deep Navy Blue for primary backgrounds
+        'brand-gold': '#f59e0b', // Warm Golden/Orange for accents and primary buttons
+        'brand-teal': '#0d9488', // Soft Teal for secondary elements
+        brandNavy: '#1e293b',
+        brandGold: '#f59e0b',
+        brandTeal: '#0d9488',
         // Deep Teal Accent (#0D9488)
         brand: {
           50: '#f0fdfa',

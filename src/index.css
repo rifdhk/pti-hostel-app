@@ -40,9 +40,13 @@
     @apply hover:shadow-md hover:border-slate-200/80;
   }
 
-  /* Flat Minimalist Teal Buttons with 44px min-height touch targets */
+  /* Primary Action Buttons matching new logo */
   .btn-primary {
-    @apply bg-teal-600 hover:bg-teal-700 text-white font-medium px-4 py-2.5 min-h-[44px] rounded-xl shadow-sm transition-all duration-150 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-teal-500/30;
+    @apply bg-brand-gold hover:bg-yellow-600 text-white font-medium px-4 py-2.5 min-h-[44px] rounded-xl shadow-sm transition-all duration-150 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-amber-500/30;
+  }
+
+  .btn-teal {
+    @apply bg-brand-teal hover:bg-teal-700 text-white font-medium px-4 py-2.5 min-h-[44px] rounded-xl shadow-sm transition-all duration-150 flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-teal-500/30;
   }
 
   .btn-secondary {

@@ -45,7 +45,7 @@ export default function BottomNav() {
   return (
     <nav 
       aria-label="Mobile Navigation"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-100 shadow-[0_-4px_16px_rgba(15,23,42,0.04)] px-3 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-brand-navy/95 backdrop-blur-md border-t border-slate-800 shadow-[0_-4px_16px_rgba(0,0,0,0.25)] px-3 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] md:hidden"
     >
       <div className="flex items-center justify-around max-w-md mx-auto">
         {navItems.map((item) => {
@@ -58,20 +58,20 @@ export default function BottomNav() {
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center min-h-[48px] min-w-[56px] px-2.5 py-1 rounded-2xl transition-all duration-150 group select-none ${
                   isActive
-                    ? 'text-teal-600 font-bold'
-                    : 'text-slate-400 hover:text-slate-600 font-medium'
+                    ? 'text-brand-gold font-bold'
+                    : 'text-slate-400 hover:text-slate-200 font-medium'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
                   <div className={`p-1.5 rounded-full transition-all duration-150 ${
-                    isActive ? 'bg-teal-50 text-teal-600 scale-105' : 'group-hover:bg-slate-50'
+                    isActive ? 'bg-slate-800 text-brand-gold scale-105' : 'group-hover:bg-slate-800/60'
                   }`}>
                     <Icon className="w-5 h-5" />
                   </div>
                   <span className={`text-[10px] mt-0.5 tracking-tight ${
-                    isActive ? 'text-teal-600 font-bold' : 'text-slate-500 font-medium'
+                    isActive ? 'text-brand-gold font-bold' : 'text-slate-400 font-medium'
                   }`}>
                     {item.name}
                   </span>
