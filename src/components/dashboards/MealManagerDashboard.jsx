@@ -57,10 +57,6 @@ export default function MealManagerDashboard() {
   const [lockNotice, setLockNotice] = useState('');
   const [exportSuccessMsg, setExportSuccessMsg] = useState('');
 
-  // Dynamic fee deposit opt-in status for Supers
-  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
-  const isDepositDisabled = isSuper && !isOptedIn;
-
   // Date Range Filtering for Matrix Export
   const [reportStartDate, setReportStartDate] = useState('');
   const [reportEndDate, setReportEndDate] = useState('');
@@ -398,41 +394,37 @@ export default function MealManagerDashboard() {
           <AvatarRenderer
             avatarId={userProfile?.avatar_id}
             gender={userProfile?.gender}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-emerald-200 ring-2 ring-teal-500/20 shadow-sm"
+            className="w-16 h-16 rounded-full border-2 border-emerald-200 ring-2 ring-teal-500/20 shadow-sm"
           />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
+              <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700 font-heading">
                 Meal & Mess Management (Tier 4)
               </span>
               <Badge variant="teal" size="sm">Hall: {userProfile?.hostelName || 'Kazi Nazrul Hall'}</Badge>
+              <Badge variant="neutral" size="sm">Roll: {userProfile?.rollNumber || '102'}</Badge>
               <Badge variant={normalizeGender(userProfile?.gender) === 'Female' ? 'warning' : 'info'} size="sm">
                 Gender: {normalizeGender(userProfile?.gender)}
               </Badge>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800 mt-1">
-              Bazar Log & Daily Meal Attendance
+            <h1 className="text-2xl font-bold tracking-tight text-slate-800 mt-0.5 font-heading">
+              {userProfile?.name || 'Fatima Zahra'}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Manager: <strong>{userProfile?.name}</strong> (Roll: {userProfile?.rollNumber || '102'}) • Mess Management Session
+              Assigned Hall: <strong>{userProfile?.hostelName || 'Kazi Nazrul Hall'}</strong> • Bazar Log & Daily Meal Attendance
             </p>
           </div>
         </div>
 
         {/* Action Buttons: Redesigned smaller, smarter, and perfectly aligned in a single horizontal row */}
-        <div className="flex flex-row gap-4 items-center flex-wrap sm:flex-nowrap">
+        <div className="flex flex-row gap-3 sm:gap-4 items-center flex-wrap sm:flex-nowrap">
           {/* Submit Fee Deposit */}
           <button
             type="button"
-            disabled={isDepositDisabled}
             onClick={() => setShowDepositModal(true)}
-            title={isDepositDisabled ? `Fee deposit is disabled: You have not opted in to eat meals for ${mealAutomationService.getMonthDisplayName(currentMonth)}.` : "Submit personal fee deposit slip"}
-            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm ${
-              isDepositDisabled
-                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400'
-            }`}
+            title="Submit personal fee deposit slip"
+            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 hover:border-slate-400 transition-all shadow-sm"
           >
             <Receipt className="w-4 h-4 text-slate-500" />
             <span>Submit Fee Deposit</span>

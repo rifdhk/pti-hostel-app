@@ -59,20 +59,7 @@ export default function HostelSuperDashboard() {
 
   const currentMonth = mealAutomationService.getCurrentMonth();
   const monthDisplayName = mealAutomationService.getMonthDisplayName(currentMonth);
-  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
   const [showDepositModal, setShowDepositModal] = useState(false);
-  const isDepositDisabled = !isOptedIn;
-
-  const handleToggleOptIn = () => {
-    const next = !isOptedIn;
-    mealAutomationService.setSuperMealOptIn(userProfile, next, currentMonth);
-    setIsOptedIn(next);
-    setDecisionSuccess(next 
-      ? `Hostel Super dining activated for ${monthDisplayName}. "Submit Fee Deposit" button is now ACTIVE.`
-      : `Hostel Super dining paused for ${monthDisplayName}. "Submit Fee Deposit" button is now DISABLED.`
-    );
-    setTimeout(() => setDecisionSuccess(''), 4500);
-  };
 
   const ROLE_DEFINITIONS = [
     { id: USER_ROLES.SUPERINTENDENT, label: t('roles.superintendent') },
@@ -143,24 +130,17 @@ export default function HostelSuperDashboard() {
     const handleUsersChanged = () => loadHostelData();
     const handleDepositsChanged = () => loadHostelData();
     const handleHostelsChanged = () => loadHostelData();
-    const handleMealsChanged = () => {
-      setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
-    };
 
     window.addEventListener('pti_users_changed', handleUsersChanged);
     window.addEventListener('pti_deposits_changed', handleDepositsChanged);
     window.addEventListener('pti_hostels_changed', handleHostelsChanged);
-    window.addEventListener('pti_meals_changed', handleMealsChanged);
-    window.addEventListener('pti_super_opt_in_changed', handleMealsChanged);
 
     return () => {
       window.removeEventListener('pti_users_changed', handleUsersChanged);
       window.removeEventListener('pti_deposits_changed', handleDepositsChanged);
       window.removeEventListener('pti_hostels_changed', handleHostelsChanged);
-      window.removeEventListener('pti_meals_changed', handleMealsChanged);
-      window.removeEventListener('pti_super_opt_in_changed', handleMealsChanged);
     };
-  }, [effectiveHostelId, userProfile, currentMonth]);
+  }, [effectiveHostelId]);
 
   const loadHostelData = () => {
     // 1. Load Hostels & pick this assigned hostel
@@ -182,9 +162,6 @@ export default function HostelSuperDashboard() {
     // 6. Load Bazar & Meals for financial statements
     setBazarExpenses(dbService.getBazarExpenses(b => b.hostelId === effectiveHostelId));
     setMealSheets(dbService.getMealSheets(m => m.hostelId === effectiveHostelId));
-
-    // 7. Update Super meal opt-in status
-    setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
   };
 
   // Dynamic calculations for reporting
@@ -452,58 +429,38 @@ export default function HostelSuperDashboard() {
           <AvatarRenderer
             avatarId={userProfile?.avatar_id}
             gender={userProfile?.gender}
-            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-teal-200 ring-2 ring-teal-500/20 shadow-sm"
+            className="w-16 h-16 rounded-full border-2 border-teal-200 ring-2 ring-teal-500/20 shadow-sm"
           />
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-teal-600"></span>
-              <span className="text-xs font-semibold uppercase tracking-wider text-teal-600">
-                Hostel Super Administration (Tier 2)
+              <span className="text-xs font-semibold uppercase tracking-wider text-teal-700 font-heading">
+                Hostel Super (Tier 2)
               </span>
-              <Badge variant="teal" size="sm">Strict Isolation: {hostelInfo?.name || 'Assigned Hall'}</Badge>
+              <Badge variant="teal" size="sm">Hall: {hostelInfo?.name || userProfile?.hostelName || 'Assigned Hall'}</Badge>
               <Badge variant={normalizeGender(userProfile?.gender) === 'Female' ? 'warning' : 'info'} size="sm">
                 Gender: {normalizeGender(userProfile?.gender)}
               </Badge>
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800 mt-1">
-              {hostelInfo?.name || 'Hall Operations Command'}
+            <h1 className="text-2xl font-bold tracking-tight text-slate-800 mt-0.5 font-heading">
+              {userProfile?.name || 'Farhan Ahmed'}
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Overseeing residential allocations, student fee verification, and monitor establishment expense authorizations.
+              Assigned Hall: <strong>{hostelInfo?.name || userProfile?.hostelName || 'Assigned Hall'}</strong> • Residential Command & Approvals
             </p>
           </div>
         </div>
 
-        <div className="flex flex-row gap-4 items-center flex-wrap sm:flex-nowrap">
-          {/* Submit Fee Deposit - Dynamic for Super */}
+        <div className="flex flex-row gap-3 sm:gap-4 items-center flex-wrap sm:flex-nowrap">
+          {/* Submit Fee Deposit */}
           <button
             type="button"
-            disabled={isDepositDisabled}
             onClick={() => setShowDepositModal(true)}
-            title={isDepositDisabled ? `Fee deposit is disabled: You have not opted in to eat meals for ${monthDisplayName}.` : "Submit personal fee deposit slip"}
-            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm ${
-              isDepositDisabled
-                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-60'
-                : 'bg-brand-gold hover:bg-yellow-600 text-white'
-            }`}
+            title="Submit personal fee deposit slip"
+            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 bg-brand-gold hover:bg-yellow-600 text-white transition-all shadow-sm"
           >
             <Receipt className="w-4 h-4" />
             <span>Submit Fee Deposit</span>
-          </button>
-
-          {/* Monthly Meal Status Opt-In Toggle */}
-          <button
-            type="button"
-            onClick={handleToggleOptIn}
-            title={isOptedIn ? `Currently opted in for ${monthDisplayName} meals. Click to pause dining.` : `Click to opt in and start meals for ${monthDisplayName}.`}
-            className={`px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 transition-all shadow-sm border ${
-              isOptedIn
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-            }`}
-          >
-            <Utensils className="w-4 h-4 text-brand-teal" />
-            <span>{isOptedIn ? `Dining Active (${monthDisplayName})` : `Start Meals (${monthDisplayName})`}</span>
           </button>
         </div>
       </div>

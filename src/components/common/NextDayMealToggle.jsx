@@ -16,7 +16,6 @@ export default function NextDayMealToggle({
   const { effectivePtiId, userProfile } = useAuth();
   const isSuper = isSuperintendent || userRole === 'superintendent' || userRole === 'hostel_super';
   const currentMonth = mealAutomationService.getCurrentMonth();
-  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
 
   // If super, allow selecting which hostel they are dining in
   const [selectedHostelId, setSelectedHostelId] = useState(() => {
@@ -52,18 +51,6 @@ export default function NextDayMealToggle({
   }, [effectivePtiId, isSuper, selectedHostelId]);
 
   useEffect(() => {
-    const handleOptInChange = () => {
-      setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
-    };
-    window.addEventListener('pti_super_opt_in_changed', handleOptInChange);
-    window.addEventListener('pti_meals_changed', handleOptInChange);
-    return () => {
-      window.removeEventListener('pti_super_opt_in_changed', handleOptInChange);
-      window.removeEventListener('pti_meals_changed', handleOptInChange);
-    };
-  }, [userProfile, currentMonth]);
-
-  useEffect(() => {
     loadMealState();
 
     const handleSettingsChange = () => loadMealState();
@@ -95,16 +82,6 @@ export default function NextDayMealToggle({
     setTimeout(() => setToastMessage(''), 3000);
   };
 
-  const handleToggleSuperOptIn = () => {
-    const next = !isOptedIn;
-    mealAutomationService.setSuperMealOptIn(userProfile, next, currentMonth);
-    setIsOptedIn(next);
-    setToastMessage(next 
-      ? `Dining activated for ${mealAutomationService.getMonthDisplayName(currentMonth)}. "Submit Fee Deposit" button is now active.`
-      : `Dining paused for ${mealAutomationService.getMonthDisplayName(currentMonth)}. "Submit Fee Deposit" button is now disabled.`
-    );
-    setTimeout(() => setToastMessage(''), 4000);
-  };
 
   const handleToggle = (mealType) => {
     if (cutOffStatus.expired) {
@@ -114,12 +91,6 @@ export default function NextDayMealToggle({
     }
 
     try {
-      const isNowTurningOn = !mealData[mealType];
-      if (isSuper && isNowTurningOn && !isOptedIn) {
-        mealAutomationService.setSuperMealOptIn(userProfile, true, currentMonth);
-        setIsOptedIn(true);
-      }
-
       const extraInfo = {
         name: userName || (isSuperintendent ? 'Dr. Anwar Hossain (Superintendent)' : 'Resident User'),
         role: userRole || (isSuperintendent ? 'superintendent' : 'boarder_student'),
@@ -194,61 +165,28 @@ export default function NextDayMealToggle({
         </div>
       </div>
 
-      {/* Super Dining Controls: Hostel Hall Selector & Monthly Opt-In Status */}
-      {isSuper && (
-        <div className="space-y-3">
-          <div className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Building2 className="w-5 h-5 text-teal-700 shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-teal-900">Select Hostel Hall for Dining</p>
-                <p className="text-[11px] text-teal-700">Your meal selections will route to that hostel's Meal Manager roster.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={effectiveHostel}
-                onChange={(e) => handleHostelChange(e.target.value)}
-                className="px-3 py-2 min-h-[44px] text-xs font-bold bg-white text-teal-900 border border-teal-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs cursor-pointer font-heading"
-              >
-                {hostelsList.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.name} ({h.type || 'Hall'})
-                  </option>
-                ))}
-              </select>
+      {/* Super Dining Controls: Hostel Hall Selector (Superintendent cross-hostel) */}
+      {isSuperintendent && (
+        <div className="p-3.5 rounded-2xl bg-teal-50/70 border border-teal-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <Building2 className="w-5 h-5 text-teal-700 shrink-0" />
+            <div>
+              <p className="text-xs font-bold text-teal-900">Select Hostel Hall for Dining</p>
+              <p className="text-[11px] text-teal-700">Your meal selections will route to that hostel's Meal Manager roster.</p>
             </div>
           </div>
-
-          {/* Monthly Dining Status Banner */}
-          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <Utensils className="w-5 h-5 text-brand-teal shrink-0" />
-              <div>
-                <p className="text-xs font-bold text-slate-800 font-heading">
-                  Monthly Mess Status ({mealAutomationService.getMonthDisplayName(currentMonth)}):{' '}
-                  <span className={isOptedIn ? 'text-emerald-700 font-bold' : 'text-amber-700 font-semibold'}>
-                    {isOptedIn ? 'Opted In (Active)' : 'Not Started (Paused)'}
-                  </span>
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {isOptedIn
-                    ? 'Fee deposit button is active. You may submit fee deposit slips for this month.'
-                    : 'Fee deposit button remains disabled until meals are started for this month.'}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleToggleSuperOptIn}
-              className={`px-3.5 py-2 text-xs font-medium rounded-md font-heading transition-all shadow-xs ${
-                isOptedIn
-                  ? 'bg-white border border-slate-300 text-slate-700 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
-                  : 'bg-brand-gold hover:bg-yellow-600 text-white'
-              }`}
+          <div className="flex items-center gap-2">
+            <select
+              value={effectiveHostel}
+              onChange={(e) => handleHostelChange(e.target.value)}
+              className="px-3 py-2 min-h-[44px] text-xs font-bold bg-white text-teal-900 border border-teal-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-2xs cursor-pointer font-heading"
             >
-              {isOptedIn ? 'Pause Meals / Opt Out' : 'Start Meals / Opt In'}
-            </button>
+              {hostelsList.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name} ({h.type || 'Hall'})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       )}

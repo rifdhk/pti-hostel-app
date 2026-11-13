@@ -15,7 +15,8 @@ export default function FeeDepositModal({
   targetMonth
 }) {
   const role = (userProfile?.role || '').toLowerCase();
-  const isSuper = role.includes('superintendent') || role.includes('hostel_super') || role === 'admin';
+  const isSuperintendent = role.includes('superintendent') || role === 'admin';
+  const isHostelSuper = role.includes('hostel_super');
 
   const [hostelsList, setHostelsList] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -39,20 +40,25 @@ export default function FeeDepositModal({
     
     setHostelsList(scoped.length > 0 ? scoped : allHostels);
 
-    // Initial selected hostel
+    // Initial selected hostel: only superintendent may choose cross-hostel
     const defaultHostel = effectiveHostelId || 
-      (isSuper ? localStorage.getItem('pti_superintendent_chosen_hostel') : null) || 
+      (isSuperintendent ? localStorage.getItem('pti_superintendent_chosen_hostel') : null) || 
+      userProfile?.hostelId ||
       scoped[0]?.id || 
       'hostel_01';
 
     setNewDeposit(prev => ({
       ...prev,
-      hostelId: prev.hostelId || defaultHostel,
+      hostelId: isSuperintendent ? (prev.hostelId || defaultHostel) : (effectiveHostelId || userProfile?.hostelId || 'hostel_01'),
       depositType: prev.depositType || 'Mess Fee Deposit'
     }));
-  }, [isOpen, effectiveHostelId, effectivePtiId, userProfile, isSuper]);
+  }, [isOpen, effectiveHostelId, effectivePtiId, userProfile, isSuperintendent]);
 
   if (!isOpen) return null;
+
+  const assignedHostelObj = hostelsList.find(h => h.id === (effectiveHostelId || userProfile?.hostelId)) || 
+    hostelsList[0] || { name: userProfile?.hostelName || 'Assigned Hostel Hall' };
+  const assignedHostelName = assignedHostelObj?.name || userProfile?.hostelName || 'Assigned Hostel Hall';
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -60,19 +66,22 @@ export default function FeeDepositModal({
 
     setSubmitting(true);
     try {
-      const selectedHostelObj = hostelsList.find(h => h.id === newDeposit.hostelId);
-      const chosenHostelId = isSuper ? (newDeposit.hostelId || effectiveHostelId || 'hostel_01') : (effectiveHostelId || 'hostel_01');
+      // Superintendent can choose any hostel; Hostel Super & others automatically map to assigned hostel
+      const chosenHostelId = isSuperintendent 
+        ? (newDeposit.hostelId || effectiveHostelId || 'hostel_01') 
+        : (effectiveHostelId || userProfile?.hostelId || 'hostel_01');
+      const selectedHostelObj = hostelsList.find(h => h.id === chosenHostelId);
 
       const entry = {
         id: `DEP-${Date.now().toString().slice(-4)}`,
         pti_id: effectivePtiId || userProfile?.pti_id || 'pti_dhaka',
         hostelId: chosenHostelId,
-        hostelName: selectedHostelObj?.name || userProfile?.hostelName || 'Hostel Hall',
-        studentId: userProfile?.id || userProfile?.loginId || (role.includes('superintendent') ? 'admin' : 'user_101'),
+        hostelName: selectedHostelObj?.name || assignedHostelName,
+        studentId: userProfile?.id || userProfile?.loginId || (isSuperintendent ? 'admin' : (isHostelSuper ? 'hostel_super' : 'user_101')),
         studentName: userProfile?.name || 'Authorized User',
-        rollNumber: userProfile?.rollNumber || (role.includes('superintendent') ? 'STAFF-T1' : role.includes('hostel_super') ? 'hostel_super' : '101'),
+        rollNumber: userProfile?.rollNumber || (isSuperintendent ? 'STAFF-T1' : (isHostelSuper ? 'hostel_super' : '101')),
         userType: userProfile?.role || 'boarder_student',
-        roomNumber: userProfile?.roomNumber || (isSuper ? 'Executive Quarters' : 'Hall'),
+        roomNumber: userProfile?.roomNumber || (isSuperintendent ? 'Executive Quarters' : (isHostelSuper ? 'Super Quarters' : 'Hall')),
         depositType: newDeposit.depositType,
         amount: Number(newDeposit.amount),
         paymentMethod: newDeposit.paymentMethod,
@@ -131,14 +140,14 @@ export default function FeeDepositModal({
           </button>
         </div>
 
-        {/* Dynamic Super Info Banner */}
-        {isSuper && (
+        {/* Dynamic Superintendent Banner */}
+        {isSuperintendent && (
           <div className="p-3 rounded-xl bg-teal-50 border border-teal-200 text-xs text-teal-900 flex items-start gap-2 font-medium">
             <Building2 className="w-4 h-4 text-brand-teal shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-teal-950">Super Dining Authority Active:</span>
+              <span className="font-bold text-teal-950">Superintendent Cross-Hostel Privileges:</span>
               <p className="text-[11px] text-teal-800 mt-0.5">
-                As a {role.includes('superintendent') ? 'Superintendent' : 'Hostel Super'}, you can allocate and deposit meal/establishment fees to any hostel dining hall.
+                You may select any hostel dining hall in the institute to submit your fee deposit.
               </p>
             </div>
           </div>
@@ -146,12 +155,12 @@ export default function FeeDepositModal({
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           
-          {/* Hostel Selection Dropdown (Exclusive for Supers who can dine at any hostel) */}
-          {isSuper ? (
+          {/* Hostel Selection: ONLY Superintendent has cross-hostel dropdown. Hostel Super & others automatically map to assigned hostel */}
+          {isSuperintendent ? (
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading flex items-center justify-between">
                 <span>Select Target Hostel / Hall</span>
-                <span className="text-[10px] text-brand-teal font-normal lowercase">(any hostel permitted)</span>
+                <span className="text-[10px] text-brand-teal font-normal lowercase">(cross-hostel permitted)</span>
               </label>
               <div className="relative">
                 <select
@@ -171,14 +180,19 @@ export default function FeeDepositModal({
           ) : (
             <div>
               <label className="block text-xs font-semibold text-slate-600 uppercase mb-1 font-heading">
-                Hostel Hall
+                Hostel Hall (Strictly Assigned)
               </label>
               <input
                 type="text"
                 disabled
-                value={userProfile?.hostelName || 'Assigned Hostel Hall'}
-                className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-slate-50 text-slate-600 font-medium cursor-not-allowed"
+                value={assignedHostelName}
+                className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
               />
+              {isHostelSuper && (
+                <p className="text-[11px] text-teal-700 mt-1">
+                  Mapped to your assigned hall ({assignedHostelName}). Verification handled by that hostel's Meal Manager.
+                </p>
+              )}
             </div>
           )}
 
