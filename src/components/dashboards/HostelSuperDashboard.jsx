@@ -480,7 +480,7 @@ export default function HostelSuperDashboard() {
         const totalEstExpenses = expenses.filter(e => e.status === 'approved').reduce((sum, e) => sum + Number(e.amount || 0), 0);
         return (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               <ConsumedMealsCard
                 userProfile={userProfile}
                 hostelId={effectiveHostelId}

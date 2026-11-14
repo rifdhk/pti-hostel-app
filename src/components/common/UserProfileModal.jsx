@@ -534,23 +534,32 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
                 </span>
               </div>
               {mealBreakdown && (
-                <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1 text-xs text-slate-600">
-                  <div className="flex justify-between">
-                    <span>Breakfast:</span>
+                <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                  <div className="flex justify-between py-1 px-2 rounded-lg bg-slate-50/80">
+                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
+                      <span>☕</span>
+                      <span>Breakfast:</span>
+                    </span>
                     <span className="font-semibold text-slate-800 font-mono">
-                      {mealBreakdown.breakfastCount} times = <strong className="text-teal-700">{mealBreakdown.breakfastMeals} meals</strong>
+                      {mealBreakdown.breakfastCount} Times <span className="text-slate-500 font-normal">(Charge: <strong className="text-teal-700 font-bold">{mealBreakdown.breakfastMeals}</strong>)</span>
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Lunch:</span>
+                  <div className="flex justify-between py-1 px-2 rounded-lg bg-slate-50/80">
+                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
+                      <span>🍛</span>
+                      <span>Lunch:</span>
+                    </span>
                     <span className="font-semibold text-slate-800 font-mono">
-                      {mealBreakdown.lunchCount} times = <strong className="text-teal-700">{mealBreakdown.lunchMeals} meals</strong> <span className="text-[10px] text-slate-400 font-normal">(always 1.0)</span>
+                      {mealBreakdown.lunchCount} Times <span className="text-slate-500 font-normal">(Charge: <strong className="text-teal-700 font-bold">{mealBreakdown.lunchMeals}</strong>)</span>
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Dinner:</span>
+                  <div className="flex justify-between py-1 px-2 rounded-lg bg-slate-50/80">
+                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
+                      <span>🌙</span>
+                      <span>Dinner:</span>
+                    </span>
                     <span className="font-semibold text-slate-800 font-mono">
-                      {mealBreakdown.dinnerCount} times = <strong className="text-teal-700">{mealBreakdown.dinnerMeals} meals</strong>
+                      {mealBreakdown.dinnerCount} Times <span className="text-slate-500 font-normal">(Charge: <strong className="text-teal-700 font-bold">{mealBreakdown.dinnerMeals}</strong>)</span>
                     </span>
                   </div>
                 </div>

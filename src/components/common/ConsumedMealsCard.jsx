@@ -50,7 +50,7 @@ export default function ConsumedMealsCard({
         {/* Top Header */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-slate-500 truncate">{title}</p>
+            <p className="text-sm font-medium text-slate-500 leading-snug">{title}</p>
             <div className="mt-2 flex items-baseline gap-2 flex-wrap">
               <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-800 font-mono">
                 {formatVal(breakdown.totalMeals)}
@@ -65,45 +65,38 @@ export default function ConsumedMealsCard({
           </div>
         </div>
 
-        {/* Detailed Breakdown List */}
-        <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-1.5 text-xs">
+        {/* Detailed Breakdown List (Minimal Icons & Exact Format) */}
+        <div className="mt-3.5 pt-3 border-t border-slate-100 space-y-2 text-xs">
           {/* Breakfast */}
-          <div className="flex items-center justify-between py-1 px-2 rounded-lg bg-slate-50/80">
-            <div className="flex items-center gap-1.5 font-medium text-slate-600">
-              <Coffee className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+          <div className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-slate-50/90 border border-slate-100/60">
+            <span className="font-medium text-slate-700 flex items-center gap-1.5">
+              <span>☕</span>
               <span>Breakfast:</span>
-            </div>
-            <span className="font-semibold text-slate-800 text-right">
-              <span className="text-slate-600 font-normal">{breakdown.breakfastCount} times</span>
-              <span className="text-slate-400 font-normal mx-1">=</span>
-              <span className="text-teal-700 font-bold font-mono">{formatVal(breakdown.breakfastMeals)} meals</span>
+            </span>
+            <span className="font-semibold text-slate-800 font-mono text-right">
+              {breakdown.breakfastCount} Times <span className="text-slate-500 font-normal">(Charge: <strong className="text-teal-700 font-bold">{formatVal(breakdown.breakfastMeals)}</strong>)</span>
             </span>
           </div>
 
           {/* Lunch */}
-          <div className="flex items-center justify-between py-1 px-2 rounded-lg bg-slate-50/80">
-            <div className="flex items-center gap-1.5 font-medium text-slate-600">
-              <Sun className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+          <div className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-slate-50/90 border border-slate-100/60">
+            <span className="font-medium text-slate-700 flex items-center gap-1.5">
+              <span>🍛</span>
               <span>Lunch:</span>
-            </div>
-            <span className="font-semibold text-slate-800 text-right">
-              <span className="text-slate-600 font-normal">{breakdown.lunchCount} times</span>
-              <span className="text-slate-400 font-normal mx-1">=</span>
-              <span className="text-teal-700 font-bold font-mono">{formatVal(breakdown.lunchMeals)} meals</span>
-              <span className="text-[10px] text-slate-400 font-normal ml-1">(always 1.0)</span>
+            </span>
+            <span className="font-semibold text-slate-800 font-mono text-right">
+              {breakdown.lunchCount} Times <span className="text-slate-500 font-normal">(Charge: <strong className="text-teal-700 font-bold">{formatVal(breakdown.lunchMeals)}</strong>)</span>
             </span>
           </div>
 
           {/* Dinner */}
-          <div className="flex items-center justify-between py-1 px-2 rounded-lg bg-slate-50/80">
-            <div className="flex items-center gap-1.5 font-medium text-slate-600">
-              <Moon className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+          <div className="flex items-center justify-between py-1.5 px-2.5 rounded-xl bg-slate-50/90 border border-slate-100/60">
+            <span className="font-medium text-slate-700 flex items-center gap-1.5">
+              <span>🌙</span>
               <span>Dinner:</span>
-            </div>
-            <span className="font-semibold text-slate-800 text-right">
-              <span className="text-slate-600 font-normal">{breakdown.dinnerCount} times</span>
-              <span className="text-slate-400 font-normal mx-1">=</span>
-              <span className="text-teal-700 font-bold font-mono">{formatVal(breakdown.dinnerMeals)} meals</span>
+            </span>
+            <span className="font-semibold text-slate-800 font-mono text-right">
+              {breakdown.dinnerCount} Times <span className="text-slate-500 font-normal">(Charge: <strong className="text-teal-700 font-bold">{formatVal(breakdown.dinnerMeals)}</strong>)</span>
             </span>
           </div>
         </div>

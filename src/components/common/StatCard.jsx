@@ -34,7 +34,7 @@ export default function StatCard({
     <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-slate-500 truncate">{title}</p>
+          <p className="text-sm font-medium text-slate-500 leading-snug">{title}</p>
           <div className="mt-2.5 flex items-baseline gap-2 flex-wrap">
             <span className="text-3xl font-bold tracking-tight text-slate-800">{value}</span>
             {change && (

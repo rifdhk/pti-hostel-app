@@ -183,7 +183,7 @@ export default function BoarderDashboard() {
       )}
 
       {/* Financial Status Cards with BENTO-BOX LAYOUT & ELEGANT ICONS (Strictly Mess & Meals) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         
         {/* Card 1: Mess Balance with Soft Circular Icon */}
         <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
