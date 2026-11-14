@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, 
-  DollarSign, 
   Send, 
   CheckCircle2, 
   Clock, 
@@ -9,7 +8,6 @@ import {
   Plus, 
   Receipt, 
   FileText,
-  AlertTriangle,
   ShieldCheck,
   Utensils
 } from 'lucide-react';
@@ -28,13 +26,12 @@ export default function NonBoarderDashboard() {
   const { userProfile, effectiveHostelId } = useAuth();
 
   const [myDeposits, setMyDeposits] = useState([]);
-  const [approvedEstExpenses, setApprovedEstExpenses] = useState([]);
   const [financials, setFinancials] = useState(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [selectedReceipt, setSelectedReceipt] = useState(null);
   const [depositSuccess, setDepositSuccess] = useState('');
 
-  // Establishment Deposit Form State
+  // Fee Deposit Form State
   const [newDeposit, setNewDeposit] = useState({
     amount: '',
     paymentMethod: 'Bank Challan (Sonali Bank)',
@@ -68,9 +65,6 @@ export default function NonBoarderDashboard() {
 
     // 2. My deposits
     setMyDeposits(dbService.getDeposits(d => String(d.rollNumber) === String(roll) || d.studentId === userProfile?.id));
-
-    // 3. Transparent Approved Establishment Expenses
-    setApprovedEstExpenses(dbService.getEstablishmentExpenses(e => e.hostelId === effectiveHostelId && e.status === 'approved'));
   };
 
   const handleDepositSubmit = (e) => {
@@ -85,7 +79,7 @@ export default function NonBoarderDashboard() {
       rollNumber: userProfile?.rollNumber || '201',
       userType: 'non_boarder_student',
       roomNumber: 'Day-Scholar (Non-Boarder)',
-      depositType: 'Establishment Fee Deposit',
+      depositType: 'Mess Fee Deposit',
       amount: Number(newDeposit.amount),
       paymentMethod: newDeposit.paymentMethod,
       trxId: newDeposit.trxId,
@@ -101,15 +95,9 @@ export default function NonBoarderDashboard() {
     setShowDepositModal(false);
     setNewDeposit({ amount: '', paymentMethod: 'Bank Challan (Sonali Bank)', trxId: '' });
 
-    setDepositSuccess(`Establishment Deposit of ৳${entry.amount} submitted successfully. Awaiting verification by Hostel Monitor or Hostel Super.`);
+    setDepositSuccess(`Deposit slip of ৳${entry.amount} submitted successfully. Awaiting verification by Hostel Management.`);
     setTimeout(() => setDepositSuccess(''), 4500);
   };
-
-  // Strict Financial Color-Coding
-  const formattedEst = mealAutomationService.formatFinancialDisplay(
-    financials?.netEstablishmentBalance ?? 0,
-    financials?.establishmentCalculationsEnabled
-  );
 
   const pendingCount = myDeposits.filter(d => d.status === 'pending').length;
 
@@ -146,28 +134,17 @@ export default function NonBoarderDashboard() {
         </div>
 
         <Button variant="primary" size="md" icon={Plus} onClick={() => setShowDepositModal(true)}>
-          Submit Establishment Deposit
+          Submit Fee Deposit
         </Button>
       </div>
-
-      {/* Warning banner if Superintendent disabled establishment calculation */}
-      {!financials?.establishmentCalculationsEnabled && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/80 text-amber-900 text-xs flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2 font-medium">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>Superintendent Master Control: Establishment calculations are temporarily hidden for institutional review.</span>
-          </div>
-          <Badge variant="neutral" size="sm">Hidden by Admin</Badge>
-        </div>
-      )}
 
       {/* KPI Stats with BENTO-BOX LAYOUT & ELEGANT ICONS */}
       {(() => {
         const myPersonalMeals = mealAutomationService.getUserPersonalConsumedMeals(userProfile, effectiveHostelId);
         return (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Card 0: Personal Consumed Meals */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Personal Consumed Meals */}
               <StatCard
                 title="My Consumed Meals"
                 value={`${myPersonalMeals} Meals`}
@@ -176,44 +153,12 @@ export default function NonBoarderDashboard() {
                 changeType="positive"
                 icon={Utensils}
               />
-              
-              {/* Card 1: Establishment Balance with Soft Circular Icon */}
-              <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-500">Establishment Balance</p>
-                    <div className="mt-2.5">
-                      <span className={`text-3xl font-bold tracking-tight ${
-                        formattedEst.isSurplus === true ? 'text-emerald-600' :
-                        formattedEst.isSurplus === false ? 'text-red-600' : 'text-slate-600'
-                      }`}>
-                        {formattedEst.text}
-                      </span>
-                    </div>
-                    <p className="mt-1.5 text-xs text-slate-400 font-normal">
-                      {formattedEst.subtext}
-                    </p>
-                    {financials?.establishmentCalculationsEnabled && (
-                      <p className="text-[10px] text-slate-400 font-mono pt-1">
-                        Paid: ৳{financials.totalEstDeposits} • Required: ৳{financials.fixedEstFee}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className={`p-3 rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 hover:scale-105 ${
-                    formattedEst.isSurplus === true ? 'bg-emerald-50 text-emerald-600' :
-                    formattedEst.isSurplus === false ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
-                  }`}>
-                    <DollarSign className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
 
               {/* Card 2: Pending Challans */}
               <StatCard
                 title="Pending Verification"
                 value={`${pendingCount} Deposit Slips`}
-                subtitle="Awaiting Hostel Super approval"
+                subtitle="Awaiting verification"
                 change="Step 2 in Progress"
                 changeType={pendingCount > 0 ? "negative" : "neutral"}
                 icon={Clock}
@@ -223,7 +168,7 @@ export default function NonBoarderDashboard() {
               <StatCard
                 title="Attached Hall"
                 value={userProfile?.hostelName || 'Nazrul Hall'}
-                subtitle="Common Room & PTI Dues"
+                subtitle="Hostel Wing Affiliation"
                 change="Affiliated"
                 changeType="positive"
                 icon={Building2}
@@ -233,7 +178,7 @@ export default function NonBoarderDashboard() {
               <StatCard
                 title="Residential Status"
                 value="Non-Boarder"
-                subtitle="Exempt from Mess meal charges"
+                subtitle="Day Scholar Trainee"
                 change="Day Scholar"
                 changeType="neutral"
                 icon={Receipt}
@@ -259,52 +204,10 @@ export default function NonBoarderDashboard() {
         </div>
       )}
 
-      {/* Transparent Approved Expense View */}
-      <Card
-        title="Hostel Establishment Fund Transparency"
-        subtitle="Public transparency record: View how establishment and common-room funds are utilized by hall administration"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[550px] text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
-                <th className="pb-3 pl-2">Establishment Maintenance Item</th>
-                <th className="pb-3">Category</th>
-                <th className="pb-3">Vendor / Voucher No.</th>
-                <th className="pb-3">Expenditure (৳)</th>
-                <th className="pb-3 text-right pr-2">Sanctioned By</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {approvedEstExpenses.map((exp) => (
-                <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                  <td className="py-3 pl-2">
-                    <p className="font-bold text-slate-900">{exp.title}</p>
-                    <span className="text-[11px] text-slate-400 italic">"{exp.notes}"</span>
-                  </td>
-                  <td className="py-3">
-                    <Badge variant="teal" size="sm">{exp.category}</Badge>
-                  </td>
-                  <td className="py-3 text-slate-600">
-                    {exp.vendor} <span className="text-slate-400 font-mono text-[11px]">({exp.voucherNo})</span>
-                  </td>
-                  <td className="py-3 font-bold font-mono text-slate-800">
-                    ৳ {Number(exp.amount).toLocaleString()}
-                  </td>
-                  <td className="py-3 text-right pr-2 font-medium text-emerald-700">
-                    ✓ {exp.approvedBy}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
       {/* My Deposit Records */}
       <Card
-        title="My Establishment Deposit History"
-        subtitle="Audit records of establishment challans and receipts with approval verification"
+        title="My Deposit History"
+        subtitle="Audit records of payment slips and receipts with approval verification"
       >
         <div className="overflow-x-auto">
           <table className="w-full min-w-[620px] text-left text-xs">
@@ -390,12 +293,12 @@ export default function NonBoarderDashboard() {
         </div>
       </Card>
 
-      {/* Modal: Establishment Deposit Form */}
+      {/* Modal: Fee Deposit Form */}
       {showDepositModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-dropdown p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base">Submit Establishment Deposit</h3>
+              <h3 className="font-bold text-slate-900 text-base">Submit Fee Deposit</h3>
               <button onClick={() => setShowDepositModal(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <form onSubmit={handleDepositSubmit} className="space-y-3.5">
@@ -410,12 +313,12 @@ export default function NonBoarderDashboard() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Establishment Fee Amount (৳)</label>
+                <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Deposit Amount (৳)</label>
                 <input
                   type="number"
                   min="1"
                   required
-                  placeholder="e.g. 1200"
+                  placeholder="e.g. 1000"
                   value={newDeposit.amount}
                   onChange={(e) => setNewDeposit({ ...newDeposit, amount: e.target.value })}
                   className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-mono font-bold focus:outline-none focus:border-brand-600"
@@ -546,20 +449,20 @@ export default function NonBoarderDashboard() {
                       Sanctioned On: {selectedReceipt.approvedAt || 'Official Session'}
                     </p>
                     <p className="text-[10px] text-emerald-700 font-medium pt-1">
-                      Digital Audit Stamp: Deposited into Institutional Establishment Maintenance Account.
+                      Digital Audit Stamp: Deposited into Hostel Accounts.
                     </p>
                   </div>
                 ) : selectedReceipt.status === 'rejected' ? (
                   <div className="space-y-0.5 mt-2 text-xs">
                     <p className="font-semibold text-rose-950">{selectedReceipt.approvedBy || 'Rejected by Warden / Approver'}</p>
-                    <p className="text-[11px] text-rose-800/80">Please check your Sonali Bank challan slip or contact warden office.</p>
+                    <p className="text-[11px] text-rose-800/80">Please check your payment slip or contact administration.</p>
                   </div>
                 ) : (
                   <div className="space-y-0.5 mt-2 text-xs">
                     <p className="font-medium text-amber-950">
-                      Awaiting verification by: <strong>Hostel Monitor or Hostel Super</strong>
+                      Awaiting verification by: <strong>Hostel Management</strong>
                     </p>
-                    <p className="text-[11px] text-amber-800/80">Establishment fee receipt will be confirmed upon Step 2 authorization.</p>
+                    <p className="text-[11px] text-amber-800/80">Fee deposit receipt will be confirmed upon Step 2 authorization.</p>
                   </div>
                 )}
               </div>

@@ -835,51 +835,66 @@ export function exportComprehensiveUserProfilePDF(user, financials = {}, messDep
 export function exportDepositLedgerExcel(hostelName, dateRange, deposits = []) {
   const wb = XLSX.utils.book_new();
 
-  const data = [
-    [getActiveInstituteName().toUpperCase()],
-    [`STUDENT FEE DEPOSIT AUDIT LEDGER - ${hostelName.toUpperCase()}`],
-    [`Audit Period: ${dateRange || 'Current Academic Session'}`],
-    [`Generated On: ${new Date().toLocaleString()}`],
-    [],
-    [
-      'Serial',
-      'Slip / Challan ID',
-      'Submitted Date',
-      'Student Name',
-      'Roll No',
-      'Trainee Category',
-      'Quarters / Room',
-      'Deposit Category',
-      'Payment Channel',
-      'Transaction / Challan ID',
-      'Amount (BDT)',
-      'Approval Status',
-      'Approved By (Audit Trail)',
-      'Approval Timestamp'
-    ]
-  ];
+  const messDeposits = deposits.filter(d => (d.depositType || '').toLowerCase().includes('mess'));
+  const estDeposits = deposits.filter(d => (d.depositType || '').toLowerCase().includes('establishment'));
 
-  deposits.forEach((d, idx) => {
-    data.push([
-      idx + 1,
-      d.id,
-      d.submittedAt || 'N/A',
-      d.studentName,
-      d.rollNumber || 'N/A',
-      d.userType === 'boarder_student' ? 'Residential Boarder' : 'Non-Boarder',
-      d.roomNumber ? `Room ${d.roomNumber}` : 'Day-Scholar',
-      d.depositType,
-      d.paymentMethod,
-      d.trxId,
-      Number(d.amount || 0),
-      (d.status || 'pending').toUpperCase(),
-      d.approvedBy || (d.status === 'approved' ? `Approved by: ${d.approvedBy_name || 'Staff'} (${d.approvedBy_role || 'Authority'})` : 'Pending Verification'),
-      d.approvedAt || 'N/A'
-    ]);
-  });
+  const buildRows = (items, sectionTitle) => {
+    const total = items.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+    const approved = items.filter(d => d.status === 'approved').reduce((sum, d) => sum + Number(d.amount || 0), 0);
+    return [
+      [getActiveInstituteName().toUpperCase()],
+      [`${sectionTitle.toUpperCase()} - ${hostelName.toUpperCase()}`],
+      [`Audit Period: ${dateRange || 'Current Academic Session'}`],
+      [`Generated On: ${new Date().toLocaleString()}`],
+      [],
+      [`Total Recorded: BDT ${total.toLocaleString()}`, `Approved Amount: BDT ${approved.toLocaleString()}`],
+      [],
+      [
+        'Serial',
+        'Slip / Challan ID',
+        'Submitted Date',
+        'Student Name',
+        'Roll No',
+        'Trainee Category',
+        'Quarters / Room',
+        'Deposit Category',
+        'Payment Channel',
+        'Transaction / Challan ID',
+        'Amount (BDT)',
+        'Approval Status',
+        'Approved By (Audit Trail)',
+        'Approval Timestamp'
+      ],
+      ...items.map((d, idx) => [
+        idx + 1,
+        d.id,
+        d.submittedAt || 'N/A',
+        d.studentName,
+        d.rollNumber || 'N/A',
+        d.userType === 'boarder_student' ? 'Residential Boarder' : 'Non-Boarder',
+        d.roomNumber ? `Room ${d.roomNumber}` : 'Day-Scholar',
+        d.depositType,
+        d.paymentMethod,
+        d.trxId,
+        Number(d.amount || 0),
+        (d.status || 'pending').toUpperCase(),
+        d.approvedBy || (d.status === 'approved' ? `Approved by: ${d.approvedBy_name || 'Staff'} (${d.approvedBy_role || 'Authority'})` : 'Pending Verification'),
+        d.approvedAt || 'N/A'
+      ])
+    ];
+  };
 
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  XLSX.utils.book_append_sheet(wb, ws, 'Deposits Ledger');
+  // Sheet 1: Mess Fee Deposits (Meal Account)
+  const wsMess = XLSX.utils.aoa_to_sheet(buildRows(messDeposits, 'Mess Fee Deposit Ledger (Meal Account)'));
+  XLSX.utils.book_append_sheet(wb, wsMess, 'Meal Account (Mess)');
+
+  // Sheet 2: Establishment Fee Deposits (Establishment Account)
+  const wsEst = XLSX.utils.aoa_to_sheet(buildRows(estDeposits, 'Establishment Fee Deposit Ledger (Establishment Account)'));
+  XLSX.utils.book_append_sheet(wb, wsEst, 'Establishment Account');
+
+  // Sheet 3: Consolidated
+  const wsAll = XLSX.utils.aoa_to_sheet(buildRows(deposits, 'Consolidated Student Fee Deposit Audit Ledger'));
+  XLSX.utils.book_append_sheet(wb, wsAll, 'All Deposits Consolidated');
 
   const fileName = `PTI_Deposit_Ledger_${hostelName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
   XLSX.writeFile(wb, fileName);
@@ -887,6 +902,7 @@ export function exportDepositLedgerExcel(hostelName, dateRange, deposits = []) {
 
 /**
  * 8. STUDENT FEE DEPOSIT AUDIT LEDGER - PDF EXPORT (.pdf)
+ * Distinctly separates Meal Accounts (Mess Fee Deposits) and Establishment Accounts
  */
 export function exportDepositLedgerPDF(hostelName, dateRange, deposits = []) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
@@ -903,16 +919,24 @@ export function exportDepositLedgerPDF(hostelName, dateRange, deposits = []) {
   doc.setFont('helvetica', 'normal');
   doc.text(`Official Financial Audit Trail • ${hostelName} • Period: ${dateRange || 'Current Session'}`, 148, 15, { align: 'center' });
 
-  // Summary Metrics Bar
-  const totalAmount = deposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-  const approvedCount = deposits.filter(d => d.status === 'approved').length;
+  const messDeposits = deposits.filter(d => (d.depositType || '').toLowerCase().includes('mess'));
+  const estDeposits = deposits.filter(d => (d.depositType || '').toLowerCase().includes('establishment'));
 
+  const messTotal = messDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const estTotal = estDeposits.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+
+  // Summary Metrics Bar
   doc.setTextColor(51, 65, 85);
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Total Recorded Deposits: BDT ${totalAmount.toLocaleString()} (${deposits.length} Records, ${approvedCount} Approved)`, 283, 26, { align: 'right' });
+  doc.text(
+    `Meal Accounts (Mess): BDT ${messTotal.toLocaleString()} (${messDeposits.length} Slips)  |  Establishment Accounts: BDT ${estTotal.toLocaleString()} (${estDeposits.length} Slips)`,
+    283,
+    26,
+    { align: 'right' }
+  );
 
-  const rows = deposits.map((d, idx) => [
+  const formatRows = (items) => items.map((d, idx) => [
     idx + 1,
     d.id,
     d.submittedAt ? d.submittedAt.substring(0, 10) : 'N/A',
@@ -924,15 +948,57 @@ export function exportDepositLedgerPDF(hostelName, dateRange, deposits = []) {
     d.approvedBy ? (d.approvedBy.length > 25 ? d.approvedBy.substring(0, 23) + '..' : d.approvedBy) : 'Pending'
   ]);
 
+  // Section A: Mess Fee Deposits (Meal Account)
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(13, 148, 136);
+  doc.text(`Section A: Meal Accounts — Mess Fee Deposits (Total: BDT ${messTotal.toLocaleString()})`, 14, 33);
+
   autoTable(doc, {
-    startY: 29,
+    startY: 36,
     head: [['SL', 'Slip ID', 'Date', 'Student (Roll)', 'Category', 'Trx / Challan ID', 'Amount', 'Status', 'Approved By (Audit Trail)']],
-    body: rows,
+    body: formatRows(messDeposits),
     styles: { fontSize: 8, cellPadding: 2, textColor: [30, 41, 59] },
-    headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+    headStyles: { fillColor: [13, 148, 136], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     theme: 'grid'
   });
+
+  const nextY = (doc.lastAutoTable?.finalY || 36) + 10;
+
+  // Section B: Establishment Fee Deposits (Establishment Account)
+  if (nextY > 160) {
+    doc.addPage();
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text(`Section B: Establishment Accounts — Fee Deposits (Total: BDT ${estTotal.toLocaleString()})`, 14, 20);
+
+    autoTable(doc, {
+      startY: 24,
+      head: [['SL', 'Slip ID', 'Date', 'Student (Roll)', 'Category', 'Trx / Challan ID', 'Amount', 'Status', 'Approved By (Audit Trail)']],
+      body: formatRows(estDeposits),
+      styles: { fontSize: 8, cellPadding: 2, textColor: [30, 41, 59] },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      theme: 'grid'
+    });
+  } else {
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(30, 41, 59);
+    doc.text(`Section B: Establishment Accounts — Fee Deposits (Total: BDT ${estTotal.toLocaleString()})`, 14, nextY);
+
+    autoTable(doc, {
+      startY: nextY + 4,
+      head: [['SL', 'Slip ID', 'Date', 'Student (Roll)', 'Category', 'Trx / Challan ID', 'Amount', 'Status', 'Approved By (Audit Trail)']],
+      body: formatRows(estDeposits),
+      styles: { fontSize: 8, cellPadding: 2, textColor: [30, 41, 59] },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      theme: 'grid'
+    });
+  }
 
   const fileName = `PTI_Deposit_Ledger_${hostelName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(fileName);

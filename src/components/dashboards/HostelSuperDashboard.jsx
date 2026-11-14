@@ -468,9 +468,10 @@ export default function HostelSuperDashboard() {
       {/* KPI Cards */}
       {(() => {
         const myPersonalMeals = mealAutomationService.getUserPersonalConsumedMeals(userProfile, effectiveHostelId);
+        const totalEstExpenses = expenses.filter(e => e.status === 'approved').reduce((sum, e) => sum + Number(e.amount || 0), 0);
         return (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
               <StatCard
                 title="My Consumed Meals"
                 value={`${myPersonalMeals} Meals`}
@@ -478,6 +479,14 @@ export default function HostelSuperDashboard() {
                 change="Hall Super"
                 changeType="positive"
                 icon={Utensils}
+              />
+              <StatCard
+                title="Establishment Fund"
+                value={`৳ ${totalEstExpenses.toLocaleString()}`}
+                subtitle={`${pendingExpenses.length} Pending authorizations`}
+                change="Admin Fund"
+                changeType="positive"
+                icon={Wrench}
               />
               <StatCard
                 title="Two-Step Pending Queue"

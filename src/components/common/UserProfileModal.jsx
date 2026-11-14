@@ -30,7 +30,8 @@ import { exportComprehensiveUserProfilePDF } from '../../utils/exportReports';
  * and the fallback /user/:userId route page.
  */
 export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) {
-  const { effectiveHostelId } = useAuth();
+  const { effectiveHostelId, userProfile: currentUser } = useAuth();
+  const isAdmin = Boolean(currentUser && ['superintendent', 'hostel_super', 'hostel_monitor', 'admin'].includes(currentUser.role?.toLowerCase()));
 
   const [user, setUser] = useState(null);
   const [financials, setFinancials] = useState(null);
@@ -434,8 +435,8 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
         </div>
       </div>
 
-      {/* 2. FINANCIAL & MEAL SUMMARY CARDS (3 BENTO BOXES) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 2. FINANCIAL & MEAL SUMMARY CARDS */}
+      <div className={`grid grid-cols-1 ${isAdmin ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4`}>
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -471,40 +472,43 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
           </div>
         </div>
 
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Establishment Balance</span>
-              <div className="mt-2">
-                {isStaff ? (
-                  <span className="text-xl font-bold text-slate-600">Staff Account</span>
-                ) : (
-                  <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-mono ${
-                    formattedEst.isSurplus === true ? 'text-emerald-600' :
-                    formattedEst.isSurplus === false ? 'text-rose-600' : 'text-slate-600'
-                  }`}>
-                    {formattedEst.text}
-                  </span>
+        {/* Establishment Balance exclusively visible to Admins (Tier 1, 2, 3) */}
+        {isAdmin && (
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Establishment Balance</span>
+                <div className="mt-2">
+                  {isStaff ? (
+                    <span className="text-xl font-bold text-slate-600">Staff Account</span>
+                  ) : (
+                    <span className={`text-2xl sm:text-3xl font-extrabold tracking-tight font-mono ${
+                      formattedEst.isSurplus === true ? 'text-emerald-600' :
+                      formattedEst.isSurplus === false ? 'text-rose-600' : 'text-slate-600'
+                    }`}>
+                      {formattedEst.text}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1.5 text-xs text-slate-500 font-medium">
+                  {isStaff ? 'Exempt from hostel establishment dues' : formattedEst.subtext}
+                </p>
+                {!isStaff && financials?.establishmentCalculationsEnabled && (
+                  <p className="text-[10px] text-slate-400 font-mono pt-1">
+                    Paid: ৳{financials.totalEstDeposits} • Fixed Fee: ৳{financials.fixedEstFee}
+                  </p>
                 )}
               </div>
-              <p className="mt-1.5 text-xs text-slate-500 font-medium">
-                {isStaff ? 'Exempt from hostel establishment dues' : formattedEst.subtext}
-              </p>
-              {!isStaff && financials?.establishmentCalculationsEnabled && (
-                <p className="text-[10px] text-slate-400 font-mono pt-1">
-                  Paid: ৳{financials.totalEstDeposits} • Fixed Fee: ৳{financials.fixedEstFee}
-                </p>
-              )}
-            </div>
-            <div className={`p-2.5 rounded-xl flex items-center justify-center shrink-0 ${
-              isStaff ? 'bg-slate-100 text-slate-500' :
-              formattedEst.isSurplus ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-              'bg-rose-50 text-rose-600 border border-rose-100'
-            }`}>
-              <DollarSign className="w-5 h-5" />
+              <div className={`p-2.5 rounded-xl flex items-center justify-center shrink-0 ${
+                isStaff ? 'bg-slate-100 text-slate-500' :
+                formattedEst.isSurplus ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                'bg-rose-50 text-rose-600 border border-rose-100'
+              }`}>
+                <DollarSign className="w-5 h-5" />
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-2xs flex flex-col justify-between">
           <div className="flex items-start justify-between gap-3">
@@ -601,75 +605,77 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
           </div>
         </Card>
 
-        {/* Table B: Establishment Fee Ledger */}
-        <Card
-          title="Table B: Establishment Fee Deposit Ledger"
-          subtitle="Date-wise audit log of hostel establishment, maintenance, and common-room fee deposits"
-          action={<Badge variant="teal" size="sm">{estDeposits.length} Records Logged</Badge>}
-        >
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[680px] text-left text-xs">
-              <thead className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
-                <tr>
-                  <th className="pb-3 pl-2">Submission Date</th>
-                  <th className="pb-3">Slip ID</th>
-                  <th className="pb-3">Amount</th>
-                  <th className="pb-3">Payment Channel</th>
-                  <th className="pb-3">Transaction / Challan</th>
-                  <th className="pb-3">Audit Status</th>
-                  <th className="pb-3 text-right pr-2">Approved By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {estDeposits.length === 0 ? (
+        {/* Table B: Establishment Fee Ledger - Exclusively visible to Admins (Tier 1, 2, 3) */}
+        {isAdmin && (
+          <Card
+            title="Table B: Establishment Fee Deposit Ledger"
+            subtitle="Date-wise audit log of hostel establishment, maintenance, and common-room fee deposits"
+            action={<Badge variant="teal" size="sm">{estDeposits.length} Records Logged</Badge>}
+          >
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[680px] text-left text-xs">
+                <thead className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
                   <tr>
-                    <td colSpan={7} className="py-6 text-center text-slate-400 text-xs">
-                      No establishment deposit transactions found for this resident.
-                    </td>
+                    <th className="pb-3 pl-2">Submission Date</th>
+                    <th className="pb-3">Slip ID</th>
+                    <th className="pb-3">Amount</th>
+                    <th className="pb-3">Payment Channel</th>
+                    <th className="pb-3">Transaction / Challan</th>
+                    <th className="pb-3">Audit Status</th>
+                    <th className="pb-3 text-right pr-2">Approved By</th>
                   </tr>
-                ) : (
-                  estDeposits.map((dep) => (
-                    <tr key={dep.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-2.5 pl-2 font-mono text-slate-700">{dep.submittedAt || 'N/A'}</td>
-                      <td className="py-2.5 font-mono font-bold text-slate-800">{dep.id}</td>
-                      <td className="py-2.5 font-mono font-bold text-emerald-700 text-sm">
-                        ৳ {Number(dep.amount || 0).toLocaleString()}
-                      </td>
-                      <td className="py-2.5 text-slate-700 font-medium">{dep.paymentMethod || 'Bank Challan'}</td>
-                      <td className="py-2.5 font-mono text-slate-600 text-[11px]">
-                        <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                          {dep.trxId || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="py-2.5">
-                        <Badge
-                          variant={
-                            dep.status === 'approved' ? 'success' :
-                            dep.status === 'rejected' ? 'danger' : 'warning'
-                          }
-                          size="sm"
-                        >
-                          {(dep.status || 'pending').toUpperCase()}
-                        </Badge>
-                      </td>
-                      <td className="py-2.5 text-right pr-2 text-[11px] text-slate-600">
-                        {dep.approvedBy ? (
-                          <span className="font-medium text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            {dep.approvedBy}
-                          </span>
-                        ) : dep.status === 'rejected' ? (
-                          <span className="text-rose-600 italic">Rejected</span>
-                        ) : (
-                          <span className="text-amber-700 italic">Awaiting Hostel Monitor / Super Audit</span>
-                        )}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {estDeposits.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-6 text-center text-slate-400 text-xs">
+                        No establishment deposit transactions found for this resident.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                  ) : (
+                    estDeposits.map((dep) => (
+                      <tr key={dep.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-2.5 pl-2 font-mono text-slate-700">{dep.submittedAt || 'N/A'}</td>
+                        <td className="py-2.5 font-mono font-bold text-slate-800">{dep.id}</td>
+                        <td className="py-2.5 font-mono font-bold text-emerald-700 text-sm">
+                          ৳ {Number(dep.amount || 0).toLocaleString()}
+                        </td>
+                        <td className="py-2.5 text-slate-700 font-medium">{dep.paymentMethod || 'Bank Challan'}</td>
+                        <td className="py-2.5 font-mono text-slate-600 text-[11px]">
+                          <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                            {dep.trxId || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="py-2.5">
+                          <Badge
+                            variant={
+                              dep.status === 'approved' ? 'success' :
+                              dep.status === 'rejected' ? 'danger' : 'warning'
+                            }
+                            size="sm"
+                          >
+                            {(dep.status || 'pending').toUpperCase()}
+                          </Badge>
+                        </td>
+                        <td className="py-2.5 text-right pr-2 text-[11px] text-slate-600">
+                          {dep.approvedBy ? (
+                            <span className="font-medium text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                              {dep.approvedBy}
+                            </span>
+                          ) : dep.status === 'rejected' ? (
+                            <span className="text-rose-600 italic">Rejected</span>
+                          ) : (
+                            <span className="text-amber-700 italic">Awaiting Hostel Monitor / Super Audit</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
 
         {/* Table C: Date-Wise Meal Attendance Ledger */}
         <Card

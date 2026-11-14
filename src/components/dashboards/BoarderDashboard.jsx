@@ -8,7 +8,6 @@ import {
   Clock, 
   Eye, 
   Utensils, 
-  Wrench, 
   ShieldCheck, 
   Plus, 
   Receipt,
@@ -30,9 +29,7 @@ export default function BoarderDashboard() {
   const { userProfile, effectiveHostelId } = useAuth();
 
   const [myDeposits, setMyDeposits] = useState([]);
-  const [approvedEstExpenses, setApprovedEstExpenses] = useState([]);
   const [approvedBazarExpenses, setApprovedBazarExpenses] = useState([]);
-  const [activeExpenseTab, setActiveExpenseTab] = useState('bazar'); // 'bazar' | 'establishment'
 
   const [financials, setFinancials] = useState(null);
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -75,10 +72,7 @@ export default function BoarderDashboard() {
     // 2. Load Deposits
     setMyDeposits(dbService.getDeposits(d => String(d.rollNumber) === String(roll) || d.studentId === userProfile?.id));
 
-    // 3. Load Transparent Approved Establishment Expenses
-    setApprovedEstExpenses(dbService.getEstablishmentExpenses(e => e.hostelId === effectiveHostelId && e.status === 'approved'));
-
-    // 4. Load Transparent Approved Bazar Expenses
+    // 3. Load Transparent Approved Bazar Expenses
     setApprovedBazarExpenses(dbService.getBazarExpenses(b => b.hostelId === effectiveHostelId));
   };
 
@@ -94,7 +88,7 @@ export default function BoarderDashboard() {
       rollNumber: userProfile?.rollNumber || '103',
       userType: 'boarder_student',
       roomNumber: userProfile?.roomNumber || '103',
-      depositType: newDeposit.depositType,
+      depositType: 'Mess Fee Deposit',
       amount: Number(newDeposit.amount),
       paymentMethod: newDeposit.paymentMethod,
       trxId: newDeposit.trxId,
@@ -110,10 +104,7 @@ export default function BoarderDashboard() {
     setShowDepositModal(false);
     setNewDeposit({ depositType: 'Mess Fee Deposit', amount: '', paymentMethod: 'bKash / Mobile Banking', trxId: '' });
 
-    const approvers = entry.depositType === 'Mess Fee Deposit'
-      ? 'Meal Manager or Hostel Super'
-      : 'Hostel Monitor or Hostel Super';
-    setDepositSuccess(`Deposit slip of ৳${entry.amount} submitted successfully. Awaiting verification by ${approvers}.`);
+    setDepositSuccess(`Deposit slip of ৳${entry.amount} submitted successfully. Awaiting verification by Meal Manager or Hostel Super.`);
     setTimeout(() => setDepositSuccess(''), 4500);
   };
 
@@ -121,11 +112,6 @@ export default function BoarderDashboard() {
   const formattedMess = mealAutomationService.formatFinancialDisplay(
     financials?.netMessBalance ?? 0,
     financials?.mealCalculationsEnabled
-  );
-
-  const formattedEst = mealAutomationService.formatFinancialDisplay(
-    financials?.netEstablishmentBalance ?? 0,
-    financials?.establishmentCalculationsEnabled
   );
 
   const pendingDepositsCount = myDeposits.filter(d => d.status === 'pending').length;
@@ -185,8 +171,8 @@ export default function BoarderDashboard() {
         </div>
       )}
 
-      {/* Financial Status Cards with BENTO-BOX LAYOUT & ELEGANT ICONS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* Financial Status Cards with BENTO-BOX LAYOUT & ELEGANT ICONS (Strictly Mess & Meals) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         
         {/* Card 1: Mess Balance with Soft Circular Icon */}
         <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
@@ -245,39 +231,7 @@ export default function BoarderDashboard() {
           </div>
         </div>
 
-        {/* Card 3: Establishment Balance with Soft Circular Icon */}
-        <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-500">Establishment Dues</p>
-              <div className="mt-2.5">
-                <span className={`text-3xl font-bold tracking-tight ${
-                  formattedEst.isSurplus === true ? 'text-emerald-600' :
-                  formattedEst.isSurplus === false ? 'text-red-600' : 'text-slate-600'
-                }`}>
-                  {formattedEst.text}
-                </span>
-              </div>
-              <p className="mt-1.5 text-xs text-slate-400 font-normal">
-                {formattedEst.subtext}
-              </p>
-              {financials?.establishmentCalculationsEnabled && (
-                <p className="text-[10px] text-slate-400 font-mono pt-1">
-                  Paid: ৳{financials.totalEstDeposits} • Fee: ৳{financials.fixedEstFee}
-                </p>
-              )}
-            </div>
-
-            <div className={`p-3 rounded-full flex items-center justify-center shrink-0 transition-transform duration-200 hover:scale-105 ${
-              formattedEst.isSurplus === true ? 'bg-emerald-50 text-emerald-600' :
-              formattedEst.isSurplus === false ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'
-            }`}>
-              <Wrench className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: My Consumed Meals count */}
+        {/* Card 3: My Consumed Meals count */}
         <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -319,106 +273,42 @@ export default function BoarderDashboard() {
         onUpdate={() => loadData()}
       />
 
-      {/* Transparent Expense View */}
+      {/* Transparent Daily Mess Bazar Purchases */}
       <Card
-        title="Transparent Hall & Mess Expense View"
-        subtitle="Complete student visibility: View verified establishment repairs and daily mess bazar purchases"
-        action={
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg border border-slate-200">
-            <button
-              onClick={() => setActiveExpenseTab('bazar')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                activeExpenseTab === 'bazar'
-                  ? 'bg-white text-brand-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Mess Bazar Purchases ({approvedBazarExpenses.length})
-            </button>
-            <button
-              onClick={() => setActiveExpenseTab('establishment')}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                activeExpenseTab === 'establishment'
-                  ? 'bg-white text-brand-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Approved Repairs ({approvedEstExpenses.length})
-            </button>
-          </div>
-        }
+        title="Transparent Daily Mess Bazar Purchases"
+        subtitle="Complete student visibility: Verified daily grocery and food purchases entered by the Meal Manager"
       >
-        {activeExpenseTab === 'bazar' ? (
-          /* Mess Bazar Transparency */
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[550px] text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
-                  <th className="pb-3 pl-2">Date & Voucher</th>
-                  <th className="pb-3">Purchased Food & Groceries</th>
-                  <th className="pb-3">Entered By</th>
-                  <th className="pb-3 text-right pr-2">Total Amount (৳)</th>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[550px] text-left text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
+                <th className="pb-3 pl-2">Date & Voucher</th>
+                <th className="pb-3">Purchased Food & Groceries</th>
+                <th className="pb-3">Entered By</th>
+                <th className="pb-3 text-right pr-2">Total Amount (৳)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {approvedBazarExpenses.map((log) => (
+                <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
+                  <td className="py-3 pl-2">
+                    <p className="font-bold text-slate-900">{log.date}</p>
+                    <span className="text-[11px] text-slate-400 font-mono">Voucher: {log.voucherNo}</span>
+                  </td>
+                  <td className="py-3 text-slate-700 max-w-md">
+                    {log.itemsList}
+                  </td>
+                  <td className="py-3 text-slate-500 font-medium">
+                    {log.managerName}
+                  </td>
+                  <td className="py-3 text-right pr-2 font-bold font-mono text-brand-700 text-sm">
+                    ৳ {Number(log.amount).toLocaleString()}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {approvedBazarExpenses.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 pl-2">
-                      <p className="font-bold text-slate-900">{log.date}</p>
-                      <span className="text-[11px] text-slate-400 font-mono">Voucher: {log.voucherNo}</span>
-                    </td>
-                    <td className="py-3 text-slate-700 max-w-md">
-                      {log.itemsList}
-                    </td>
-                    <td className="py-3 text-slate-500 font-medium">
-                      {log.managerName}
-                    </td>
-                    <td className="py-3 text-right pr-2 font-bold font-mono text-brand-700 text-sm">
-                      ৳ {Number(log.amount).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          /* Establishment Repairs Transparency */
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[550px] text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
-                  <th className="pb-3 pl-2">Maintenance Work</th>
-                  <th className="pb-3">Category</th>
-                  <th className="pb-3">Vendor / Voucher</th>
-                  <th className="pb-3">Cost (৳)</th>
-                  <th className="pb-3 text-right pr-2">Sanctioned By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {approvedEstExpenses.map((exp) => (
-                  <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3 pl-2">
-                      <p className="font-bold text-slate-900">{exp.title}</p>
-                      <span className="text-[11px] text-slate-400 italic">"{exp.notes}"</span>
-                    </td>
-                    <td className="py-3">
-                      <Badge variant="teal" size="sm">{exp.category}</Badge>
-                    </td>
-                    <td className="py-3 text-slate-600">
-                      {exp.vendor} <span className="text-slate-400 font-mono text-[11px]">({exp.voucherNo})</span>
-                    </td>
-                    <td className="py-3 font-bold font-mono text-slate-800">
-                      ৳ {Number(exp.amount).toLocaleString()}
-                    </td>
-                    <td className="py-3 text-right pr-2 font-medium text-emerald-700">
-                      ✓ {exp.approvedBy}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              ))}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {/* Personal Deposit History */}
@@ -527,7 +417,6 @@ export default function BoarderDashboard() {
                   className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
                 >
                   <option>Mess Fee Deposit</option>
-                  <option>Establishment Fee Deposit</option>
                 </select>
               </div>
 

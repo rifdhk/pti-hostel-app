@@ -17,6 +17,7 @@ export default function FeeDepositModal({
   const role = (userProfile?.role || '').toLowerCase();
   const isSuperintendent = role.includes('superintendent') || role === 'admin';
   const isHostelSuper = role.includes('hostel_super');
+  const isStaffOrAdmin = isSuperintendent || isHostelSuper || role.includes('monitor');
 
   const [hostelsList, setHostelsList] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -196,20 +197,34 @@ export default function FeeDepositModal({
             </div>
           )}
 
-          {/* Deposit Type */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">
-              Deposit Type
-            </label>
-            <select
-              value={newDeposit.depositType}
-              onChange={(e) => setNewDeposit({ ...newDeposit, depositType: e.target.value })}
-              className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal font-medium"
-            >
-              <option value="Mess Fee Deposit">Mess Fee Deposit (Meal Advance)</option>
-              <option value="Establishment Fee Deposit">Establishment Fee Deposit (Maintenance / Term)</option>
-            </select>
-          </div>
+          {/* Deposit Type - Establishment fee option exclusively accessible to Admins */}
+          {isStaffOrAdmin ? (
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">
+                Deposit Type
+              </label>
+              <select
+                value={newDeposit.depositType}
+                onChange={(e) => setNewDeposit({ ...newDeposit, depositType: e.target.value })}
+                className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-teal font-medium"
+              >
+                <option value="Mess Fee Deposit">Mess Fee Deposit (Meal Advance)</option>
+                <option value="Establishment Fee Deposit">Establishment Fee Deposit (Maintenance / Term)</option>
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1 font-heading">
+                Deposit Type
+              </label>
+              <input
+                type="text"
+                disabled
+                value="Mess Fee Deposit (Meal Advance)"
+                className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+              />
+            </div>
+          )}
 
           {/* Amount */}
           <div>
