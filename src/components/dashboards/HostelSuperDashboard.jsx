@@ -445,6 +445,9 @@ export default function HostelSuperDashboard() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-800 mt-0.5 font-heading">
               {userProfile?.name || 'Farhan Ahmed'}
             </h1>
+            {userProfile?.designation && (
+              <p className="text-sm font-medium text-gray-500 mt-1">{userProfile.designation}</p>
+            )}
             <p className="text-xs text-slate-500 mt-0.5">
               Assigned Hall: <strong>{hostelInfo?.name || userProfile?.hostelName || 'Assigned Hall'}</strong> • Residential Command & Approvals
             </p>

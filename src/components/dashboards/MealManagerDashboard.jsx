@@ -414,6 +414,9 @@ export default function MealManagerDashboard() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-800 mt-0.5 font-heading">
               {userProfile?.name || 'Fatima Zahra'}
             </h1>
+            {userProfile?.designation && (
+              <p className="text-sm font-medium text-gray-500 mt-1">{userProfile.designation}</p>
+            )}
             <p className="text-xs text-slate-500 mt-0.5">
               Assigned Hall: <strong>{userProfile?.hostelName || 'Kazi Nazrul Hall'}</strong> • Bazar Log & Daily Meal Attendance
             </p>

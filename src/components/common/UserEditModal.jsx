@@ -74,6 +74,7 @@ export default function UserEditModal({ user, isOpen, onClose, onUserUpdated }) 
       const normalizedGender = normalizeGender(user.gender);
       setFormData({
         name: user.name || '',
+        designation: user.designation || '',
         role: normalizedRole,
         hostelId: isUserNonBoarder ? '' : (user.hostelId || (hostels[0]?.id || 'hostel_01')),
         roomNumber: isUserNonBoarder ? '' : (user.roomNumber || ''),
@@ -224,6 +225,10 @@ export default function UserEditModal({ user, isOpen, onClose, onUserUpdated }) 
           updates.bedNumber = null;
           updates.designation = 'Hostel Super (Warden)';
         }
+      }
+
+      if (formData.designation !== undefined && String(formData.designation).trim()) {
+        updates.designation = String(formData.designation).trim();
       }
 
       const updated = await adminUpdateUser(user.id || user.loginId || user.rollNumber, updates);
@@ -386,6 +391,20 @@ export default function UserEditModal({ user, isOpen, onClose, onUserUpdated }) 
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
+            />
+          </div>
+
+          {/* Designation (পদবী) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              Designation (পদবী)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Senior Instructor, Boarder Student, Hostel Monitor"
+              value={formData.designation}
+              onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
               className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-brand-600"
             />
           </div>

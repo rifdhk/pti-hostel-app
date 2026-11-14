@@ -71,6 +71,7 @@ export default function Profile() {
   const initialEmergency = getInitialEmergency();
   const [formData, setFormData] = useState({
     name: sanitizeDisplayName(userProfile?.name, ''),
+    designation: userProfile?.designation || '',
     phone_number: userProfile?.phone_number || userProfile?.phone || '',
     emergency_contact_name: initialEmergency.name,
     emergency_contact_phone: initialEmergency.phone,
@@ -88,6 +89,7 @@ export default function Profile() {
     const em = getInitialEmergency();
     setFormData({
       name: sanitizeDisplayName(userProfile?.name, ''),
+      designation: userProfile?.designation || '',
       phone_number: userProfile?.phone_number || userProfile?.phone || '',
       emergency_contact_name: em.name,
       emergency_contact_phone: em.phone,
@@ -123,6 +125,7 @@ export default function Profile() {
 
       const updates = {
         name: (formData.name || '').trim(),
+        designation: (formData.designation || '').trim(),
         phone_number: (formData.phone_number || '').trim(),
         phone: (formData.phone_number || '').trim(),
         emergency_contact_name: emName,
@@ -211,9 +214,11 @@ export default function Profile() {
                   {getTierBadge()}
                 </div>
 
-                <p className="text-xs text-slate-500 font-medium flex items-center gap-2">
-                  <span>{sanitizeDisplayName(userProfile?.designation, 'Institutional Member')}</span>
-                  <span>•</span>
+                {userProfile?.designation && (
+                  <p className="text-sm font-medium text-gray-500 mt-1">{userProfile.designation}</p>
+                )}
+
+                <p className="text-xs text-slate-500 font-medium flex items-center gap-2 mt-1">
                   <span className="font-mono text-brand-700 font-semibold">
                     {userProfile?.rollNumber ? `Class Roll: ${userProfile.rollNumber}` : `Admin ID: ${userProfile?.loginId || 'N/A'}`}
                   </span>
@@ -535,6 +540,20 @@ export default function Profile() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-semibold focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-amber-500/20"
+                />
+              </div>
+
+              {/* Editable: Designation (পদবী) */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                  Designation (পদবী)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Senior Instructor, Boarder Student, Hostel Monitor"
+                  value={formData.designation}
+                  onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                  className="w-full text-xs p-2.5 rounded-lg border border-slate-200 bg-white text-slate-800 font-medium focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-amber-500/20"
                 />
               </div>
 

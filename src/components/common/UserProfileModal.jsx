@@ -268,6 +268,9 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
                 {(user.role || 'Resident').replace('_', ' ').toUpperCase()}
               </Badge>
             </div>
+            {user?.designation && (
+              <p className="text-sm font-medium text-gray-500 mt-1">{user.designation}</p>
+            )}
             <p className="text-xs text-slate-500 mt-0.5">
               Comprehensive User Profile, Audit Balances &amp; Date-Wise Ledgers
             </p>
@@ -332,6 +335,9 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
                 Gender: {normalizeGender(user.gender)}
               </Badge>
             </div>
+            {user?.designation && (
+              <p className="text-sm font-medium text-gray-500 mt-1">{user.designation}</p>
+            )}
             <p className="text-xs text-slate-500 mt-1.5 flex flex-wrap items-center gap-3">
               <span className="inline-flex items-center gap-1">
                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
