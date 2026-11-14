@@ -11,6 +11,8 @@ export default function NextDayMealToggle({
   userName,
   userRole,
   isSuperintendent = false,
+  isOptedIn,
+  setIsOptedIn,
   onUpdate
 }) {
   const { effectivePtiId, userProfile } = useAuth();
@@ -106,6 +108,10 @@ export default function NextDayMealToggle({
       );
 
       setMealData(updated);
+
+      if (typeof setIsOptedIn === 'function') {
+        setIsOptedIn(true);
+      }
 
       const chosenHostelObj = hostelsList.find(h => h.id === effectiveHostel);
       const hostelName = chosenHostelObj ? chosenHostelObj.name : 'Hostel';

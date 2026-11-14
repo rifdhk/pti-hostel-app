@@ -73,6 +73,9 @@ export default function MealManagerDashboard() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState('');
 
+  // Dynamic fee deposit opt-in status
+  const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
+
   useEffect(() => {
     loadMealData();
 
@@ -492,7 +495,9 @@ export default function MealManagerDashboard() {
         rollNumber={userProfile?.rollNumber || '102'}
         userName={userProfile?.name || 'Rohan Deshmukh'}
         userRole="meal_manager"
-        onUpdate={() => loadHostelMealData()}
+        isOptedIn={isOptedIn}
+        setIsOptedIn={setIsOptedIn}
+        onUpdate={() => loadMealData()}
       />
 
       {lockNotice && (

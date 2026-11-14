@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Wrench, 
-  Plus, 
   Clock, 
   CheckCircle2, 
   XCircle, 
@@ -13,8 +12,7 @@ import {
   Check,
   X,
   Receipt,
-  Utensils,
-  ShoppingBag
+  Utensils
 } from 'lucide-react';
 import Card from '../common/Card';
 import StatCard from '../common/StatCard';
@@ -56,16 +54,6 @@ export default function HostelMonitorDashboard() {
   // Self Fee Deposit Modal State
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState('');
-
-  // Daily Mess Bazar Modal State
-  const [showBazarModal, setShowBazarModal] = useState(false);
-  const [newBazar, setNewBazar] = useState({
-    date: new Date().toISOString().split('T')[0],
-    amount: '',
-    itemsList: '',
-    voucherNo: '',
-    vendor: ''
-  });
 
   useEffect(() => {
     loadHostelData();
@@ -135,38 +123,6 @@ export default function HostelMonitorDashboard() {
     setTimeout(() => setDepositSuccess(''), 5000);
   };
 
-  const handleCreateBazar = (e) => {
-    e.preventDefault();
-    if (!newBazar.amount || !newBazar.itemsList) return;
-
-    const entry = {
-      id: `BAZ-${Date.now().toString().slice(-4)}`,
-      pti_id: effectivePtiId || userProfile?.pti_id || 'pti_dhaka',
-      hostelId: effectiveHostelId || 'hostel_01',
-      date: newBazar.date || new Date().toISOString().split('T')[0],
-      category: 'Daily Mess Bazar',
-      amount: Number(newBazar.amount),
-      items: newBazar.itemsList,
-      buyerName: userProfile?.name || 'Monitor / Manager',
-      buyerId: userProfile?.id || userProfile?.loginId || 'monitor_101',
-      voucherNo: newBazar.voucherNo || `BZ-${Date.now().toString().slice(-4)}`,
-      vendor: newBazar.vendor || 'Local Market Vendor',
-      enteredAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
-      notes: `Recorded via Hostel Monitor dashboard by ${userProfile?.name}`
-    };
-
-    dbService.insertBazarExpense(entry);
-    setShowBazarModal(false);
-    setNewBazar({
-      date: new Date().toISOString().split('T')[0],
-      amount: '',
-      itemsList: '',
-      voucherNo: '',
-      vendor: ''
-    });
-    setSuccessMessage(`Daily Bazar voucher of ৳${entry.amount} successfully recorded into hostel ledger.`);
-    setTimeout(() => setSuccessMessage(''), 4500);
-  };
 
   const handleSubmitExpense = (e) => {
     e.preventDefault();
@@ -259,16 +215,6 @@ export default function HostelMonitorDashboard() {
             <Wrench className="w-4 h-4" />
             <span>{showForm ? 'Close Entry Form' : 'New Establishment Expense'}</span>
           </button>
-
-          {/* Record Daily Bazar */}
-          <button 
-            type="button"
-            onClick={() => setShowBazarModal(true)}
-            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center gap-2 bg-brand-gold hover:bg-yellow-600 text-white transition-all shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Record Daily Bazar</span>
-          </button>
         </div>
       </div>
 
@@ -326,7 +272,7 @@ export default function HostelMonitorDashboard() {
               rollNumber={userProfile?.rollNumber || '101'}
               userName={userProfile?.name || 'Aarav Patel (Hostel Monitor)'}
               userRole="hostel_monitor"
-              onUpdate={() => loadHostelExpenses()}
+              onUpdate={() => loadHostelData()}
             />
           </>
         );
@@ -594,103 +540,6 @@ export default function HostelMonitorDashboard() {
         targetMonth={currentMonth}
         onSuccess={handleDepositSuccess}
       />
-
-      {/* Modal: Record Daily Mess Bazar */}
-      {showBazarModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5 text-brand-gold" />
-                <h3 className="font-bold text-slate-900 text-base font-heading">Record Daily Mess Bazar</h3>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setShowBazarModal(false)} 
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateBazar} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Purchase Date</label>
-                <input
-                  type="date"
-                  required
-                  value={newBazar.date}
-                  onChange={(e) => setNewBazar({ ...newBazar, date: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Total Bazar Expense (৳)</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  placeholder="e.g. 3500"
-                  value={newBazar.amount}
-                  onChange={(e) => setNewBazar({ ...newBazar, amount: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-mono font-bold focus:outline-none focus:ring-2 focus:ring-brand-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Items Breakdown (Detailed)</label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="e.g. Rice 25kg, Chicken 8kg, Onion 5kg, Oil 3L, Spices..."
-                  value={newBazar.itemsList}
-                  onChange={(e) => setNewBazar({ ...newBazar, itemsList: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Vendor / Store Name</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Karwan Bazar Wholesale"
-                  value={newBazar.vendor}
-                  onChange={(e) => setNewBazar({ ...newBazar, vendor: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-gold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1 font-heading">Receipt / Memo Number</label>
-                <input
-                  type="text"
-                  placeholder="e.g. MEMO-8821"
-                  value={newBazar.voucherNo}
-                  onChange={(e) => setNewBazar({ ...newBazar, voucherNo: e.target.value })}
-                  className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white text-slate-800 font-mono focus:outline-none focus:ring-2 focus:ring-brand-gold"
-                />
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowBazarModal(false)}
-                  className="px-4 py-2 text-sm font-medium rounded-md font-heading bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium rounded-md font-heading bg-brand-gold hover:bg-yellow-600 text-white transition-all shadow-sm"
-                >
-                  Save Bazar Record
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
     </div>
   );
