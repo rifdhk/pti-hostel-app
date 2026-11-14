@@ -18,6 +18,7 @@ import Badge from '../common/Badge';
 import AvatarRenderer from '../Avatars/AvatarRenderer';
 import { normalizeGender } from '../../constants/avatars';
 import NextDayMealToggle from '../common/NextDayMealToggle';
+import ConsumedMealsCard from '../common/ConsumedMealsCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
@@ -48,11 +49,18 @@ export default function NonBoarderDashboard() {
     const handleDepositsChange = () => {
       loadData();
     };
+    const handleMealsChange = () => {
+      loadData();
+    };
     window.addEventListener('pti_settings_changed', handleSettingsChange);
     window.addEventListener('pti_deposits_changed', handleDepositsChange);
+    window.addEventListener('pti_meals_changed', handleMealsChange);
+    window.addEventListener('pti_meal_values_changed', handleMealsChange);
     return () => {
       window.removeEventListener('pti_settings_changed', handleSettingsChange);
       window.removeEventListener('pti_deposits_changed', handleDepositsChange);
+      window.removeEventListener('pti_meals_changed', handleMealsChange);
+      window.removeEventListener('pti_meal_values_changed', handleMealsChange);
     };
   }, [effectiveHostelId, userProfile]);
 
@@ -147,14 +155,12 @@ export default function NonBoarderDashboard() {
         return (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Card 1: Personal Consumed Meals */}
-              <StatCard
+              {/* Card 1: Personal Consumed Meals Breakdown */}
+              <ConsumedMealsCard
+                userProfile={userProfile}
+                hostelId={effectiveHostelId}
                 title="My Consumed Meals"
-                value={`${myPersonalMeals} Meals`}
                 subtitle="Day-scholar guest meals"
-                change="Token Meals"
-                changeType="positive"
-                icon={Utensils}
               />
 
               {/* Card 2: Pending Challans */}

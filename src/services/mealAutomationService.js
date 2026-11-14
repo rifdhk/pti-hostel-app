@@ -281,10 +281,153 @@ export const mealAutomationService = {
   },
 
   /**
-   * Universal Personal Consumed Meals Calculation for ANY tier (T1 through T6)
+   * ---------------- MEAL VALUE CONFIGURATION (FRACTIONAL MEAL VALUE SYSTEM) ----------------
+   * Allows Meal Managers to set breakfastValue (0.5 or 1.0) and dinnerValue (0.5 or 1.0)
+   * while lunch remains strictly 1.0.
+   *
+   * Carry-On Logic: If a date has no explicitly configured value in the database,
+   * the system automatically inherits the value from the most recently configured
+   * past date (or defaults to 1.0 if no past config exists).
    */
-  getUserPersonalConsumedMeals: (userProfile, hostelId = null) => {
-    if (!userProfile) return 0;
+  getMealValueConfigs: (hostelId = null) => {
+    const all = dbService.getMealValueConfigs();
+    if (!hostelId) return all;
+    return all.filter(c => !c.hostelId || c.hostelId === hostelId);
+  },
+
+  getEffectiveMealValues: (targetDate = null, hostelId = null) => {
+    const dateStr = targetDate 
+      ? String(targetDate).split('T')[0] 
+      : new Date().toISOString().split('T')[0];
+
+    const allConfigs = dbService.getMealValueConfigs();
+    const relevant = allConfigs.filter(c => !hostelId || !c.hostelId || c.hostelId === hostelId);
+
+    // 1. Explicit config for this exact date
+    const explicit = relevant.find(c => c.date === dateStr);
+    if (explicit) {
+      const bVal = Number(explicit.breakfastValue) === 0.5 ? 0.5 : 1.0;
+      const dVal = Number(explicit.dinnerValue) === 0.5 ? 0.5 : 1.0;
+      return {
+        date: dateStr,
+        breakfastValue: bVal,
+        lunchValue: 1.0, // Strictly 1.0
+        dinnerValue: dVal,
+        isExplicit: true,
+        inheritedFromDate: null,
+        sourceDate: dateStr,
+        config: explicit
+      };
+    }
+
+    // 2. Carry-on logic: find the most recently configured past date (date < dateStr)
+    const pastConfigs = relevant
+      .filter(c => c.date && c.date < dateStr)
+      .sort((a, b) => b.date.localeCompare(a.date));
+
+    if (pastConfigs.length > 0) {
+      const mostRecentPast = pastConfigs[0];
+      const bVal = Number(mostRecentPast.breakfastValue) === 0.5 ? 0.5 : 1.0;
+      const dVal = Number(mostRecentPast.dinnerValue) === 0.5 ? 0.5 : 1.0;
+      return {
+        date: dateStr,
+        breakfastValue: bVal,
+        lunchValue: 1.0,
+        dinnerValue: dVal,
+        isExplicit: false,
+        inheritedFromDate: mostRecentPast.date,
+        sourceDate: mostRecentPast.date,
+        config: mostRecentPast
+      };
+    }
+
+    // 3. Baseline default: 1.0 for all meals
+    return {
+      date: dateStr,
+      breakfastValue: 1.0,
+      lunchValue: 1.0,
+      dinnerValue: 1.0,
+      isExplicit: false,
+      inheritedFromDate: null,
+      sourceDate: 'default',
+      config: null
+    };
+  },
+
+  setMealValueConfig: (hostelId, targetDate, values, updatedBy = 'Meal Manager') => {
+    const dateStr = String(targetDate).split('T')[0];
+    const bVal = Number(values.breakfastValue) === 0.5 ? 0.5 : 1.0;
+    const dVal = Number(values.dinnerValue) === 0.5 ? 0.5 : 1.0;
+
+    const configRecord = {
+      id: `${hostelId || 'hostel_01'}_${dateStr}`,
+      hostelId: hostelId || 'hostel_01',
+      date: dateStr,
+      breakfastValue: bVal,
+      lunchValue: 1.0,
+      dinnerValue: dVal,
+      updatedAt: new Date().toISOString(),
+      updatedBy: updatedBy || 'Meal Manager'
+    };
+
+    dbService.saveMealValueConfig(configRecord);
+
+    // Synchronize all existing meal sheets so cached record totals reflect dynamic fractional values
+    try {
+      const allSheets = dbService.getMealSheets();
+      let modifiedAny = false;
+      const updatedSheets = allSheets.map(sheet => {
+        if (hostelId && sheet.hostelId && sheet.hostelId !== hostelId) return sheet;
+        const effective = mealAutomationService.getEffectiveMealValues(sheet.date, sheet.hostelId);
+        if (sheet.records && Array.isArray(sheet.records)) {
+          let sheetTotal = 0;
+          const nextRecords = sheet.records.map(r => {
+            const b = r.breakfast ? effective.breakfastValue : 0;
+            const l = r.lunch ? 1.0 : 0;
+            const d = r.dinner ? effective.dinnerValue : 0;
+            const recTotal = parseFloat((b + l + d).toFixed(2));
+            sheetTotal += recTotal;
+            return { ...r, total: recTotal };
+          });
+          modifiedAny = true;
+          return {
+            ...sheet,
+            records: nextRecords,
+            totalMealsCount: parseFloat(sheetTotal.toFixed(2))
+          };
+        }
+        return sheet;
+      });
+
+      if (modifiedAny) {
+        dbService.saveMealSheets(updatedSheets);
+      }
+    } catch (e) {
+      console.error('Failed to sync sheet meal totals with updated meal values:', e);
+    }
+
+    // Trigger events to update all UI dashboards and recalculate immediately
+    window.dispatchEvent(new CustomEvent('pti_meal_values_changed', { detail: { hostelId, date: dateStr, config: configRecord } }));
+    window.dispatchEvent(new CustomEvent('pti_meals_changed'));
+    return configRecord;
+  },
+
+  /**
+   * Detailed personal consumed meals breakdown with fractional math
+   */
+  getUserPersonalConsumedMealsBreakdown: (userProfile, hostelId = null) => {
+    if (!userProfile) {
+      return {
+        breakfastCount: 0,
+        breakfastMeals: 0,
+        lunchCount: 0,
+        lunchMeals: 0,
+        dinnerCount: 0,
+        dinnerMeals: 0,
+        totalMeals: 0
+      };
+    }
+
     const roll = userProfile.rollNumber;
     const loginId = userProfile.loginId;
     const userId = userProfile.id;
@@ -292,7 +435,12 @@ export const mealAutomationService = {
 
     const allSheets = dbService.getMealSheets();
 
-    let consumedCount = 0;
+    let breakfastCount = 0;
+    let breakfastMeals = 0;
+    let lunchCount = 0;
+    let lunchMeals = 0;
+    let dinnerCount = 0;
+    let dinnerMeals = 0;
     let foundInSheets = false;
 
     allSheets.forEach(sheet => {
@@ -308,36 +456,68 @@ export const mealAutomationService = {
 
       if (rec) {
         foundInSheets = true;
-        consumedCount += (rec.breakfast ? 1 : 0) + (rec.lunch ? 1 : 0) + (rec.dinner ? 1 : 0);
+        const effective = mealAutomationService.getEffectiveMealValues(sheet.date, sheet.hostelId);
+        if (rec.breakfast) {
+          breakfastCount += 1;
+          breakfastMeals += effective.breakfastValue;
+        }
+        if (rec.lunch) {
+          lunchCount += 1;
+          lunchMeals += 1.0;
+        }
+        if (rec.dinner) {
+          dinnerCount += 1;
+          dinnerMeals += effective.dinnerValue;
+        }
       }
     });
 
-    if (foundInSheets && consumedCount > 0) {
-      return consumedCount;
+    if (foundInSheets && (breakfastCount + lunchCount + dinnerCount) > 0) {
+      breakfastMeals = parseFloat(breakfastMeals.toFixed(2));
+      lunchMeals = parseFloat(lunchMeals.toFixed(2));
+      dinnerMeals = parseFloat(dinnerMeals.toFixed(2));
+      const totalMeals = parseFloat((breakfastMeals + lunchMeals + dinnerMeals).toFixed(2));
+      return {
+        breakfastCount,
+        breakfastMeals,
+        lunchCount,
+        lunchMeals,
+        dinnerCount,
+        dinnerMeals,
+        totalMeals
+      };
     }
 
-    // Role-based authentic baselines if initial seed session
+    // Role-based authentic baseline breakdown if initial seed session
     const role = (userProfile.role || '').toLowerCase();
-    if (role.includes('boarder') || role === 'boarder_student') {
-      return 42; // Standard monthly baseline
-    }
-    if (role.includes('manager') || role === 'meal_manager') {
-      return 48; // Active mess duty baseline
-    }
-    if (role.includes('monitor') || role === 'hostel_monitor') {
-      return 45; // Hall monitor baseline
-    }
-    if (role.includes('hostel_super')) {
-      return 28; // Hall super mess attendance
-    }
-    if (role.includes('superintendent')) {
-      return 18; // Central superintendent executive dining baseline
-    }
-    if (role.includes('non_boarder')) {
-      return 6; // Day-scholar occasional token meals
-    }
+    let baselineTotal = 24;
+    if (role.includes('boarder') || role === 'boarder_student') baselineTotal = 42;
+    else if (role.includes('manager') || role === 'meal_manager') baselineTotal = 48;
+    else if (role.includes('monitor') || role === 'hostel_monitor') baselineTotal = 45;
+    else if (role.includes('hostel_super')) baselineTotal = 28;
+    else if (role.includes('superintendent')) baselineTotal = 18;
+    else if (role.includes('non_boarder')) baselineTotal = 6;
 
-    return 24;
+    const basePerMeal = Math.floor(baselineTotal / 3);
+    const rem = baselineTotal - (basePerMeal * 2);
+
+    return {
+      breakfastCount: basePerMeal,
+      breakfastMeals: basePerMeal,
+      lunchCount: basePerMeal,
+      lunchMeals: basePerMeal,
+      dinnerCount: rem,
+      dinnerMeals: rem,
+      totalMeals: baselineTotal
+    };
+  },
+
+  /**
+   * Universal Personal Consumed Meals Calculation for ANY tier (T1 through T6)
+   */
+  getUserPersonalConsumedMeals: (userProfile, hostelId = null) => {
+    const breakdown = mealAutomationService.getUserPersonalConsumedMealsBreakdown(userProfile, hostelId);
+    return breakdown.totalMeals;
   },
 
   /**
@@ -350,21 +530,26 @@ export const mealAutomationService = {
     const hostelBazar = allBazar.filter(b => b.hostelId === hostelId && (!ptiId || b.pti_id === ptiId));
     const totalBazarExpenses = hostelBazar.reduce((sum, b) => sum + Number(b.amount || 0), 0);
 
-    // 2. Total consumed meals for this hostel
+    // 2. Total consumed meals for this hostel (with fractional values)
     const allSheets = dbService.getMealSheets();
     const hostelSheets = allSheets.filter(s => s.hostelId === hostelId && (!ptiId || s.pti_id === ptiId));
 
     let totalConsumedMeals = 0;
     hostelSheets.forEach(sheet => {
+      const effective = mealAutomationService.getEffectiveMealValues(sheet.date, sheet.hostelId);
       if (sheet.records && Array.isArray(sheet.records)) {
         sheet.records.forEach(r => {
-          totalConsumedMeals += (r.breakfast ? 1 : 0) + (r.lunch ? 1 : 0) + (r.dinner ? 1 : 0);
+          const bVal = r.breakfast ? effective.breakfastValue : 0;
+          const lVal = r.lunch ? 1.0 : 0;
+          const dVal = r.dinner ? effective.dinnerValue : 0;
+          totalConsumedMeals += (bVal + lVal + dVal);
         });
       } else {
         totalConsumedMeals += Number(sheet.totalMealsCount || 0);
       }
     });
 
+    totalConsumedMeals = parseFloat(totalConsumedMeals.toFixed(2));
     // Ensure non-zero divisor
     const safeMeals = Math.max(totalConsumedMeals, 1);
     const mealRate = parseFloat((totalBazarExpenses / safeMeals).toFixed(2));
@@ -399,21 +584,12 @@ export const mealAutomationService = {
       .filter(d => (d?.depositType || '').toLowerCase().includes('establishment'))
       .reduce((sum, d) => sum + (Number(d?.amount) || 0), 0);
 
-    // 2. Student consumed meals
-    const allSheets = dbService.getMealSheets();
-    let studentMealsCount = 0;
-
-    allSheets.filter(s => s.hostelId === hostelId && (!ptiId || s.pti_id === ptiId)).forEach(sheet => {
-      const rec = sheet.records?.find(r => String(r.rollNumber) === String(rollNumber));
-      if (rec) {
-        studentMealsCount += (rec.breakfast ? 1 : 0) + (rec.lunch ? 1 : 0) + (rec.dinner ? 1 : 0);
-      }
-    });
-
-    // Baseline mock count if early session
-    if (studentMealsCount === 0 && userType === 'boarder_student') {
-      studentMealsCount = 42; // standard monthly baseline
-    }
+    // 2. Student consumed meals with fractional breakdown
+    const breakdown = mealAutomationService.getUserPersonalConsumedMealsBreakdown(
+      { rollNumber, role: userType },
+      hostelId
+    );
+    const studentMealsCount = breakdown.totalMeals;
 
     const calculatedMealCost = Math.round(studentMealsCount * rateData.mealRate);
     const netMessBalance = totalMessDeposits - calculatedMealCost;
@@ -426,6 +602,7 @@ export const mealAutomationService = {
       mealCalculationsEnabled: settings.mealCalculationsEnabled,
       establishmentCalculationsEnabled: settings.establishmentCalculationsEnabled,
       studentMealsCount,
+      mealBreakdown: breakdown,
       mealRate: rateData.mealRate,
       totalBazarExpenses: rateData.totalBazarExpenses,
       totalConsumedMeals: rateData.totalConsumedMeals,

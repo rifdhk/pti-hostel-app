@@ -22,6 +22,7 @@ import AvatarRenderer from '../Avatars/AvatarRenderer';
 import { normalizeGender } from '../../constants/avatars';
 import NextDayMealToggle from '../common/NextDayMealToggle';
 import FeeDepositModal from '../common/FeeDepositModal';
+import ConsumedMealsCard from '../common/ConsumedMealsCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
@@ -62,16 +63,19 @@ export default function HostelMonitorDashboard() {
       loadHostelData();
     };
     const handleMealsChanged = () => {
+      loadHostelData();
       setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
     };
 
     window.addEventListener('pti_deposits_changed', handleDepositsChanged);
     window.addEventListener('pti_meals_changed', handleMealsChanged);
+    window.addEventListener('pti_meal_values_changed', handleMealsChanged);
     window.addEventListener('pti_super_opt_in_changed', handleMealsChanged);
 
     return () => {
       window.removeEventListener('pti_deposits_changed', handleDepositsChanged);
       window.removeEventListener('pti_meals_changed', handleMealsChanged);
+      window.removeEventListener('pti_meal_values_changed', handleMealsChanged);
       window.removeEventListener('pti_super_opt_in_changed', handleMealsChanged);
     };
   }, [effectiveHostelId, userProfile, currentMonth]);
@@ -227,13 +231,10 @@ export default function HostelMonitorDashboard() {
         return (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <StatCard
-                title="My Consumed Meals"
-                value={`${myPersonalMeals} Meals`}
+              <ConsumedMealsCard
+                userProfile={userProfile}
+                hostelId={effectiveHostelId}
                 subtitle="Hall Monitor dining attendance"
-                change="Personal Account"
-                changeType="positive"
-                icon={Utensils}
               />
               <StatCard
                 title="Pending Approvals"

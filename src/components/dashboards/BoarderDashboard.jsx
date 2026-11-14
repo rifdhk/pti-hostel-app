@@ -21,6 +21,7 @@ import Badge from '../common/Badge';
 import AvatarRenderer from '../Avatars/AvatarRenderer';
 import { normalizeGender } from '../../constants/avatars';
 import NextDayMealToggle from '../common/NextDayMealToggle';
+import ConsumedMealsCard from '../common/ConsumedMealsCard';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
@@ -54,11 +55,18 @@ export default function BoarderDashboard() {
     const handleDepositsChange = () => {
       loadData();
     };
+    const handleMealsChange = () => {
+      loadData();
+    };
     window.addEventListener('pti_settings_changed', handleSettingsChange);
     window.addEventListener('pti_deposits_changed', handleDepositsChange);
+    window.addEventListener('pti_meals_changed', handleMealsChange);
+    window.addEventListener('pti_meal_values_changed', handleMealsChange);
     return () => {
       window.removeEventListener('pti_settings_changed', handleSettingsChange);
       window.removeEventListener('pti_deposits_changed', handleDepositsChange);
+      window.removeEventListener('pti_meals_changed', handleMealsChange);
+      window.removeEventListener('pti_meal_values_changed', handleMealsChange);
     };
   }, [effectiveHostelId, userProfile]);
 
@@ -234,29 +242,11 @@ export default function BoarderDashboard() {
           </div>
         </div>
 
-        {/* Card 3: My Consumed Meals count */}
-        <div className="bg-white border border-slate-100 rounded-2xl sm:rounded-3xl p-6 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-slate-500">My Consumed Meals</p>
-              <div className="mt-2.5">
-                <span className="text-3xl font-bold tracking-tight text-slate-800">
-                  {financials?.studentMealsCount || 0} Meals
-                </span>
-              </div>
-              <p className="mt-1.5 text-xs text-slate-400 font-normal">
-                Logged across daily meal sheets
-              </p>
-              <p className="text-[10px] text-teal-700 font-semibold pt-1">
-                {pendingDepositsCount > 0 ? `${pendingDepositsCount} Deposit slips awaiting approval` : 'All slips processed'}
-              </p>
-            </div>
-
-            <div className="p-3 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 transition-transform duration-200 hover:scale-105">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
+        {/* Card 3: My Consumed Meals Breakdown (All Users Fractional Calculation) */}
+        <ConsumedMealsCard
+          userProfile={userProfile}
+          hostelId={effectiveHostelId}
+        />
 
       </div>
 

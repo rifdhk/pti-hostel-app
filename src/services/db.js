@@ -45,6 +45,7 @@ export const STORAGE_KEYS = {
   MEAL_SHEETS: 'pti_db_meal_sheets',
   NEXT_DAY_MEALS: 'pti_next_day_meals',
   GLOBAL_SETTINGS: 'pti_global_settings',
+  MEAL_VALUE_CONFIGS: 'pti_db_meal_value_configs',
   INITIALIZED_V3: 'pti_db_init_v3_multitier',
   INITIALIZED_V4: 'pti_db_init_v4_profiles',
   INITIALIZED_V5: 'pti_db_init_v5_approval_workflows',
@@ -66,7 +67,8 @@ export const COLLECTIONS = {
   BAZAR: 'bazar_expenses',
   MEAL_SHEETS: 'daily_meal_sheets',
   NEXT_DAY_MEALS: 'next_day_meals',
-  SETTINGS: 'settings'
+  SETTINGS: 'settings',
+  MEAL_VALUE_CONFIGS: 'meal_value_configs'
 };
 
 // Optional Supabase configuration from Vite environment
@@ -395,6 +397,31 @@ export const dbService = {
     localStorage.setItem(STORAGE_KEYS.NEXT_DAY_MEALS, JSON.stringify(updatedMap));
     fireCloudSync(() => upsertRecordToCloud(COLLECTIONS.NEXT_DAY_MEALS, key, entry), 'saveNextDayMealEntry');
     return entry;
+  },
+
+  // ---------------- MEAL VALUE CONFIGS (FRACTIONAL MEAL VALUE SYSTEM) ----------------
+  getMealValueConfigs(filterFn = null) {
+    const configs = readLocalCollection(STORAGE_KEYS.MEAL_VALUE_CONFIGS, []);
+    return typeof filterFn === 'function' ? configs.filter(filterFn) : configs;
+  },
+
+  saveMealValueConfig(config) {
+    if (!config || !config.id) return [];
+    const configs = dbService.getMealValueConfigs();
+    const exists = configs.some((c) => c.id === config.id);
+    const updated = exists
+      ? configs.map((c) => (c.id === config.id ? config : c))
+      : [config, ...configs];
+
+    writeLocalCollection(STORAGE_KEYS.MEAL_VALUE_CONFIGS, updated, 'pti_meal_values_changed', config);
+    fireCloudSync(() => upsertRecordToCloud(COLLECTIONS.MEAL_VALUE_CONFIGS, config.id, config), 'saveMealValueConfig');
+    return updated;
+  },
+
+  saveMealValueConfigs(configsList) {
+    const list = Array.isArray(configsList) ? configsList : [];
+    writeLocalCollection(STORAGE_KEYS.MEAL_VALUE_CONFIGS, list, 'pti_meal_values_changed');
+    return list;
   },
 
   // ---------------- ESTABLISHMENT & BAZAR EXPENSES ----------------

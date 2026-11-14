@@ -92,21 +92,52 @@ export function exportMealFinancialReportExcel(hostelName, dateRange, bazarExpen
     ['Live Dynamic Meal Rate', `BDT ${rateData.mealRate || 0} / meal`],
     [],
     ['--- BOARDER-WISE MEAL & FINANCIAL BALANCES ---'],
-    ['Serial', 'Class Roll / ID', 'Resident Name', 'Room No', 'Meals Consumed', 'Total Mess Deposits (BDT)', 'Calculated Meal Cost (BDT)', 'Net Financial Balance (BDT)', 'Balance Status']
+    ['Serial', 'Class Roll / ID', 'Resident Name', 'Room No', 'Breakfast (Half/Full)', 'Lunch (1.0)', 'Dinner (Half/Full)', 'Total Fractional Meals', 'Total Mess Deposits (BDT)', 'Calculated Meal Cost (BDT)', 'Net Financial Balance (BDT)', 'Balance Status']
   ];
 
   // Boarder rows
   const boarders = users.filter(u => u.role === 'boarder_student' || u.role === 'hostel_monitor' || u.role === 'meal_manager');
   
   boarders.forEach((b, index) => {
+    let breakfastCount = 0;
+    let breakfastMeals = 0;
+    let lunchCount = 0;
+    let lunchMeals = 0;
+    let dinnerCount = 0;
+    let dinnerMeals = 0;
     let studentMeals = 0;
+
     mealSheets.forEach(s => {
       const rec = s.records?.find(r => String(r.rollNumber) === String(b.rollNumber || b.loginId));
       if (rec) {
-        studentMeals += (rec.breakfast ? 1 : 0) + (rec.lunch ? 1 : 0) + (rec.dinner ? 1 : 0);
+        const effective = mealAutomationService.getEffectiveMealValues(s.date, s.hostelId);
+        if (rec.breakfast) {
+          breakfastCount += 1;
+          breakfastMeals += effective.breakfastValue;
+        }
+        if (rec.lunch) {
+          lunchCount += 1;
+          lunchMeals += 1.0;
+        }
+        if (rec.dinner) {
+          dinnerCount += 1;
+          dinnerMeals += effective.dinnerValue;
+        }
       }
     });
-    if (studentMeals === 0) studentMeals = 42; // baseline
+
+    const hasAttendance = (breakfastCount + lunchCount + dinnerCount) > 0;
+    if (!hasAttendance) {
+      breakfastCount = 14; breakfastMeals = 14;
+      lunchCount = 14; lunchMeals = 14;
+      dinnerCount = 14; dinnerMeals = 14;
+      studentMeals = 42;
+    } else {
+      breakfastMeals = parseFloat(breakfastMeals.toFixed(2));
+      lunchMeals = parseFloat(lunchMeals.toFixed(2));
+      dinnerMeals = parseFloat(dinnerMeals.toFixed(2));
+      studentMeals = parseFloat((breakfastMeals + lunchMeals + dinnerMeals).toFixed(2));
+    }
 
     const deposit = b.depositBalance || 4500;
     const cost = Math.round(studentMeals * (rateData.mealRate || 65));
@@ -119,6 +150,9 @@ export function exportMealFinancialReportExcel(hostelName, dateRange, bazarExpen
       b.rollNumber || b.loginId,
       b.name,
       b.roomNumber ? `Room ${b.roomNumber}` : 'Day-Scholar',
+      `${breakfastCount} (${breakfastMeals})`,
+      `${lunchCount} (${lunchMeals})`,
+      `${dinnerCount} (${dinnerMeals})`,
       studentMeals,
       deposit,
       cost,
@@ -199,14 +233,45 @@ export function exportMealFinancialReportPDF(hostelName, dateRange, bazarExpense
   // Table 1: Boarder-wise Balances
   const boarders = users.filter(u => u.role === 'boarder_student' || u.role === 'hostel_monitor' || u.role === 'meal_manager');
   const boarderRows = boarders.map((b, idx) => {
+    let breakfastCount = 0;
+    let breakfastMeals = 0;
+    let lunchCount = 0;
+    let lunchMeals = 0;
+    let dinnerCount = 0;
+    let dinnerMeals = 0;
     let studentMeals = 0;
+
     mealSheets.forEach(s => {
       const rec = s.records?.find(r => String(r.rollNumber) === String(b.rollNumber || b.loginId));
       if (rec) {
-        studentMeals += (rec.breakfast ? 1 : 0) + (rec.lunch ? 1 : 0) + (rec.dinner ? 1 : 0);
+        const effective = mealAutomationService.getEffectiveMealValues(s.date, s.hostelId);
+        if (rec.breakfast) {
+          breakfastCount += 1;
+          breakfastMeals += effective.breakfastValue;
+        }
+        if (rec.lunch) {
+          lunchCount += 1;
+          lunchMeals += 1.0;
+        }
+        if (rec.dinner) {
+          dinnerCount += 1;
+          dinnerMeals += effective.dinnerValue;
+        }
       }
     });
-    if (studentMeals === 0) studentMeals = 42;
+
+    const hasAttendance = (breakfastCount + lunchCount + dinnerCount) > 0;
+    if (!hasAttendance) {
+      breakfastMeals = 14;
+      lunchMeals = 14;
+      dinnerMeals = 14;
+      studentMeals = 42;
+    } else {
+      breakfastMeals = parseFloat(breakfastMeals.toFixed(2));
+      lunchMeals = parseFloat(lunchMeals.toFixed(2));
+      dinnerMeals = parseFloat(dinnerMeals.toFixed(2));
+      studentMeals = parseFloat((breakfastMeals + lunchMeals + dinnerMeals).toFixed(2));
+    }
 
     const deposit = b.depositBalance || 4500;
     const cost = Math.round(studentMeals * (rateData.mealRate || 65));
@@ -219,6 +284,9 @@ export function exportMealFinancialReportPDF(hostelName, dateRange, bazarExpense
       b.rollNumber || b.loginId,
       b.name,
       b.roomNumber ? `R-${b.roomNumber}` : 'Day',
+      breakfastMeals,
+      lunchMeals,
+      dinnerMeals,
       studentMeals,
       `BDT ${deposit}`,
       `BDT ${cost}`,
@@ -230,21 +298,24 @@ export function exportMealFinancialReportPDF(hostelName, dateRange, bazarExpense
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);
-  doc.text('Resident Boarder Meal Balances', 14, 58);
+  doc.text('Resident Boarder Meal Balances (Dynamic Fractional Breakdown)', 14, 58);
 
   autoTable(doc, {
     startY: 61,
-    head: [['SL', 'Roll/ID', 'Resident Name', 'Room', 'Meals', 'Deposits', 'Meal Cost', 'Net Balance', 'Status']],
+    head: [['SL', 'Roll/ID', 'Resident Name', 'Room', 'B-Fast', 'Lunch', 'Dinner', 'Meals', 'Deposits', 'Meal Cost', 'Net Balance', 'Status']],
     body: boarderRows,
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2, textColor: [30, 41, 59] },
+    styles: { fontSize: 7.5, cellPadding: 2, textColor: [30, 41, 59] },
     headStyles: { fillColor: [13, 148, 136], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 8, halign: 'center' },
-      1: { cellWidth: 16, fontStyle: 'bold' },
+      0: { cellWidth: 7, halign: 'center' },
+      1: { cellWidth: 15, fontStyle: 'bold' },
       4: { halign: 'center' },
-      7: { fontStyle: 'bold' }
+      5: { halign: 'center' },
+      6: { halign: 'center' },
+      7: { halign: 'center', fontStyle: 'bold' },
+      10: { fontStyle: 'bold' }
     }
   });
 
@@ -711,8 +782,13 @@ export function exportComprehensiveUserProfilePDF(user, financials = {}, messDep
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 118, 110);
   doc.text('TOTAL CONSUMED MEALS', 142, 62);
-  doc.setFontSize(11);
-  doc.text(`${financials?.totalMealsCount ?? 0} Meals`, 142, 70);
+  doc.setFontSize(10.5);
+  doc.text(`${financials?.totalMealsCount ?? 0} Meals`, 142, 69);
+  if (financials?.mealBreakdown) {
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`B: ${financials.mealBreakdown.breakfastMeals} • L: ${financials.mealBreakdown.lunchMeals} • D: ${financials.mealBreakdown.dinnerMeals}`, 142, 73);
+  }
 
   // 4. Section 1 Table: Registration Details
   const profileDetails = [
@@ -1074,8 +1150,12 @@ export function exportMealLedgerMatrixExcel(hostelName, dateRange, mealSheets = 
   const sheetDateMap = {};
   filteredSheets.forEach(sheet => {
     sheetDateMap[sheet.date] = sheetDateMap[sheet.date] || {};
+    const effective = mealAutomationService.getEffectiveMealValues(sheet.date, sheet.hostelId);
     (sheet.records || []).forEach(r => {
-      const count = (r.breakfast ? 1 : 0) + (r.lunch ? 1 : 0) + (r.dinner ? 1 : 0);
+      const bVal = r.breakfast ? effective.breakfastValue : 0;
+      const lVal = r.lunch ? 1.0 : 0;
+      const dVal = r.dinner ? effective.dinnerValue : 0;
+      const count = parseFloat((bVal + lVal + dVal).toFixed(2));
       sheetDateMap[sheet.date][String(r.rollNumber)] = count;
     });
   });
@@ -1209,8 +1289,12 @@ export function exportMealLedgerMatrixPDF(hostelName, dateRange, mealSheets = []
   const sheetDateMap = {};
   filteredSheets.forEach(sheet => {
     sheetDateMap[sheet.date] = sheetDateMap[sheet.date] || {};
+    const effective = mealAutomationService.getEffectiveMealValues(sheet.date, sheet.hostelId);
     (sheet.records || []).forEach(r => {
-      const count = (r.breakfast ? 1 : 0) + (r.lunch ? 1 : 0) + (r.dinner ? 1 : 0);
+      const bVal = r.breakfast ? effective.breakfastValue : 0;
+      const lVal = r.lunch ? 1.0 : 0;
+      const dVal = r.dinner ? effective.dinnerValue : 0;
+      const count = parseFloat((bVal + lVal + dVal).toFixed(2));
       sheetDateMap[sheet.date][String(r.rollNumber)] = count;
     });
   });

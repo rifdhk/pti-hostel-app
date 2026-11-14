@@ -36,6 +36,7 @@ import UserDeleteConfirmModal from '../common/UserDeleteConfirmModal';
 import UserProfileModal from '../common/UserProfileModal';
 import NextDayMealToggle from '../common/NextDayMealToggle';
 import FeeDepositModal from '../common/FeeDepositModal';
+import ConsumedMealsCard from '../common/ConsumedMealsCard';
 import { useAuth, USER_ROLES } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
@@ -130,15 +131,20 @@ export default function HostelSuperDashboard() {
     const handleUsersChanged = () => loadHostelData();
     const handleDepositsChanged = () => loadHostelData();
     const handleHostelsChanged = () => loadHostelData();
+    const handleMealsChanged = () => loadHostelData();
 
     window.addEventListener('pti_users_changed', handleUsersChanged);
     window.addEventListener('pti_deposits_changed', handleDepositsChanged);
     window.addEventListener('pti_hostels_changed', handleHostelsChanged);
+    window.addEventListener('pti_meals_changed', handleMealsChanged);
+    window.addEventListener('pti_meal_values_changed', handleMealsChanged);
 
     return () => {
       window.removeEventListener('pti_users_changed', handleUsersChanged);
       window.removeEventListener('pti_deposits_changed', handleDepositsChanged);
       window.removeEventListener('pti_hostels_changed', handleHostelsChanged);
+      window.removeEventListener('pti_meals_changed', handleMealsChanged);
+      window.removeEventListener('pti_meal_values_changed', handleMealsChanged);
     };
   }, [effectiveHostelId]);
 
@@ -475,13 +481,10 @@ export default function HostelSuperDashboard() {
         return (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-              <StatCard
-                title="My Consumed Meals"
-                value={`${myPersonalMeals} Meals`}
+              <ConsumedMealsCard
+                userProfile={userProfile}
+                hostelId={effectiveHostelId}
                 subtitle="Hostel Super dining attendance"
-                change="Hall Super"
-                changeType="positive"
-                icon={Utensils}
               />
               <StatCard
                 title="Establishment Fund"

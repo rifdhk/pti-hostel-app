@@ -20,7 +20,8 @@ import {
   Sun,
   Moon,
   Sparkles,
-  Send
+  Send,
+  Sliders
 } from 'lucide-react';
 import Card from '../common/Card';
 import StatCard from '../common/StatCard';
@@ -30,6 +31,8 @@ import AvatarRenderer from '../Avatars/AvatarRenderer';
 import { normalizeGender } from '../../constants/avatars';
 import NextDayMealToggle from '../common/NextDayMealToggle';
 import FeeDepositModal from '../common/FeeDepositModal';
+import ConsumedMealsCard from '../common/ConsumedMealsCard';
+import MealValueConfigModal from '../common/MealValueConfigModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { dbService } from '../../services/db';
 import { mealAutomationService } from '../../services/mealAutomationService';
@@ -73,6 +76,9 @@ export default function MealManagerDashboard() {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState('');
 
+  // Dynamic Meal Value Configuration Modal State (Tier 4)
+  const [showValueConfigModal, setShowValueConfigModal] = useState(false);
+
   // Dynamic fee deposit opt-in status
   const [isOptedIn, setIsOptedIn] = useState(() => mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
 
@@ -83,16 +89,19 @@ export default function MealManagerDashboard() {
       loadMealData();
     };
     const handleMealsUpdated = () => {
+      loadMealData();
       setIsOptedIn(mealAutomationService.hasSuperOptedInToMeals(userProfile, currentMonth));
     };
 
     window.addEventListener('pti_deposits_changed', handleDepositsUpdated);
     window.addEventListener('pti_meals_changed', handleMealsUpdated);
+    window.addEventListener('pti_meal_values_changed', handleMealsUpdated);
     window.addEventListener('pti_super_opt_in_changed', handleMealsUpdated);
 
     return () => {
       window.removeEventListener('pti_deposits_changed', handleDepositsUpdated);
       window.removeEventListener('pti_meals_changed', handleMealsUpdated);
+      window.removeEventListener('pti_meal_values_changed', handleMealsUpdated);
       window.removeEventListener('pti_super_opt_in_changed', handleMealsUpdated);
     };
   }, [effectiveHostelId, userProfile, currentMonth]);
@@ -160,16 +169,21 @@ export default function MealManagerDashboard() {
   const handleToggleMeal = (rollNumber, mealKey) => {
     if (mealSheet?.locked) return; // Prevent modifying locked meal sheet
 
+    const effective = mealAutomationService.getEffectiveMealValues(mealSheet.date, mealSheet.hostelId || effectiveHostelId);
+
     const updatedRecords = mealSheet.records.map(r => {
       if (r.rollNumber === rollNumber) {
         const updatedMeal = { ...r, [mealKey]: !r[mealKey] };
-        const total = (updatedMeal.breakfast ? 1 : 0) + (updatedMeal.lunch ? 1 : 0) + (updatedMeal.dinner ? 1 : 0);
+        const b = updatedMeal.breakfast ? effective.breakfastValue : 0;
+        const l = updatedMeal.lunch ? 1.0 : 0;
+        const d = updatedMeal.dinner ? effective.dinnerValue : 0;
+        const total = parseFloat((b + l + d).toFixed(2));
         return { ...updatedMeal, total };
       }
       return r;
     });
 
-    const newTotalMeals = updatedRecords.reduce((sum, r) => sum + r.total, 0);
+    const newTotalMeals = parseFloat(updatedRecords.reduce((sum, r) => sum + r.total, 0).toFixed(2));
     const updatedSheet = {
       ...mealSheet,
       records: updatedRecords,
@@ -261,9 +275,13 @@ export default function MealManagerDashboard() {
     filteredSheets.forEach(sheet => {
       const d = sheet.date;
       if (!dateRollMap[d]) dateRollMap[d] = {};
+      const effective = mealAutomationService.getEffectiveMealValues(sheet.date, sheet.hostelId || effectiveHostelId);
       (sheet.records || []).forEach(r => {
         const roll = String(r.rollNumber || r.studentId);
-        let count = (r.breakfast ? 1 : 0) + (r.lunch ? 1 : 0) + (r.dinner ? 1 : 0);
+        const b = r.breakfast ? effective.breakfastValue : 0;
+        const l = r.lunch ? 1.0 : 0;
+        const dVal = r.dinner ? effective.dinnerValue : 0;
+        let count = parseFloat((b + l + dVal).toFixed(2));
         dateRollMap[d][roll] = count;
       });
     });
@@ -272,7 +290,11 @@ export default function MealManagerDashboard() {
     if (nextMeals[superKey] && uniqueDates.includes(targetDate)) {
       if (!dateRollMap[targetDate]) dateRollMap[targetDate] = {};
       const sm = nextMeals[superKey];
-      dateRollMap[targetDate]['STAFF-T1'] = (sm.breakfast ? 1 : 0) + (sm.lunch ? 1 : 0) + (sm.dinner ? 1 : 0);
+      const effectiveNext = mealAutomationService.getEffectiveMealValues(targetDate, effectiveHostelId);
+      const b = sm.breakfast ? effectiveNext.breakfastValue : 0;
+      const l = sm.lunch ? 1.0 : 0;
+      const dVal = sm.dinner ? effectiveNext.dinnerValue : 0;
+      dateRollMap[targetDate]['STAFF-T1'] = parseFloat((b + l + dVal).toFixed(2));
     }
 
     const rows = eatersList.map(eater => {
@@ -289,7 +311,7 @@ export default function MealManagerDashboard() {
       return {
         ...eater,
         dateCounts,
-        totalMeals
+        totalMeals: parseFloat(totalMeals.toFixed(2))
       };
     });
 
@@ -300,7 +322,7 @@ export default function MealManagerDashboard() {
       rows.forEach(r => {
         colSum += (r.dateCounts[date] || 0);
       });
-      columnTotals[date] = colSum;
+      columnTotals[date] = parseFloat(colSum.toFixed(2));
       grandTotal += colSum;
     });
 
@@ -308,7 +330,7 @@ export default function MealManagerDashboard() {
       dates: uniqueDates,
       rows,
       columnTotals,
-      grandTotal
+      grandTotal: parseFloat(grandTotal.toFixed(2))
     };
   }, [allMealSheets, hostelUsers, reportStartDate, reportEndDate, effectiveHostelId]);
 
@@ -378,15 +400,23 @@ export default function MealManagerDashboard() {
 
   const totalBazarSpent = bazarLogs.reduce((sum, b) => sum + Number(b.amount || 0), 0);
 
-  // Dynamic calculations for today's summary
-  const todayTotalMeals = (mealSheet?.records || []).reduce((sum, r) => {
-    return sum + (r.breakfast ? 1 : 0) + (r.lunch ? 1 : 0) + (r.dinner ? 1 : 0);
-  }, 0);
+  // Dynamic calculations for today's summary with effective meal values
+  const effectiveToday = mealAutomationService.getEffectiveMealValues(mealSheet?.date, effectiveHostelId);
+  const todayTotalMeals = parseFloat((mealSheet?.records || []).reduce((sum, r) => {
+    const b = r.breakfast ? effectiveToday.breakfastValue : 0;
+    const l = r.lunch ? 1.0 : 0;
+    const d = r.dinner ? effectiveToday.dinnerValue : 0;
+    return sum + (b + l + d);
+  }, 0).toFixed(2));
 
   const todayBreakfastCount = (mealSheet?.records || []).filter(r => r.breakfast).length;
   const todayLunchCount = (mealSheet?.records || []).filter(r => r.lunch).length;
   const todayDinnerCount = (mealSheet?.records || []).filter(r => r.dinner).length;
   const todayActiveBoarders = (mealSheet?.records || []).filter(r => r.breakfast || r.lunch || r.dinner).length;
+
+  const todayBreakfastMeals = parseFloat((todayBreakfastCount * effectiveToday.breakfastValue).toFixed(2));
+  const todayLunchMeals = todayLunchCount; // strictly 1.0
+  const todayDinnerMeals = parseFloat((todayDinnerCount * effectiveToday.dinnerValue).toFixed(2));
 
   return (
     <div className="space-y-6">
@@ -425,6 +455,17 @@ export default function MealManagerDashboard() {
 
         {/* Action Buttons: Redesigned smaller, smarter, and perfectly aligned in a single horizontal row */}
         <div className="flex flex-row gap-3 items-center justify-end shrink-0 w-full md:w-auto">
+          {/* Meal Value Config (Tier 4 Fractional Meal Values) */}
+          <button
+            type="button"
+            onClick={() => setShowValueConfigModal(true)}
+            title="Configure dynamic meal values (0.5 or 1.0) with carry-on logic"
+            className="px-4 py-2 text-sm font-medium rounded-md font-heading inline-flex items-center justify-center gap-2 bg-brand-navy hover:bg-slate-900 text-white transition-all shadow-sm cursor-pointer"
+          >
+            <Sliders className="w-4 h-4 text-teal-400" />
+            <span>Meal Value Config</span>
+          </button>
+
           {/* Submit Fee Deposit */}
           <button
             type="button"
@@ -450,13 +491,9 @@ export default function MealManagerDashboard() {
 
       {/* KPI Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard
-          title="My Consumed Meals"
-          value={`${myPersonalMeals} Meals`}
-          subtitle="My personal eating count"
-          change="Personal Account"
-          changeType="positive"
-          icon={Utensils}
+        <ConsumedMealsCard
+          userProfile={userProfile}
+          hostelId={effectiveHostelId}
         />
         <StatCard
           title="Dynamic Meal Rate"
@@ -605,7 +642,7 @@ export default function MealManagerDashboard() {
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <span className="text-xs uppercase font-bold tracking-wider text-teal-200">
                 Daily Dietary Live Summary
@@ -613,6 +650,15 @@ export default function MealManagerDashboard() {
               <span className="text-[11px] bg-teal-800/80 text-teal-100 px-2.5 py-0.5 rounded-full border border-teal-700/60 font-mono">
                 {mealSheet?.date || 'Today'}
               </span>
+              <button
+                type="button"
+                onClick={() => setShowValueConfigModal(true)}
+                title="Configure or override meal values for this date"
+                className="text-[11px] bg-teal-800/90 hover:bg-teal-700 text-teal-100 px-2.5 py-0.5 rounded-full border border-teal-600 font-mono flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Sliders className="w-3 h-3 text-teal-300" />
+                <span>B: {effectiveToday.breakfastValue} • L: 1.0 • D: {effectiveToday.dinnerValue} (Edit)</span>
+              </button>
             </div>
 
             <div className="flex flex-wrap items-baseline gap-2.5">
@@ -622,11 +668,11 @@ export default function MealManagerDashboard() {
               <span className="text-3xl sm:text-4xl font-extrabold text-emerald-300 font-mono tracking-tight">
                 {todayTotalMeals}
               </span>
-              <span className="text-sm font-semibold text-teal-200">Meals</span>
+              <span className="text-sm font-semibold text-teal-200">Meals (Fractional)</span>
             </div>
 
             <p className="text-xs text-teal-100/80 max-w-xl">
-              Dynamically calculated sum of breakfast, lunch, and dinner attendance across {todayActiveBoarders} active boarders enrolled in today's sheet.
+              Dynamically calculated sum of breakfast ({effectiveToday.breakfastValue}), lunch (1.0), and dinner ({effectiveToday.dinnerValue}) attendance across {todayActiveBoarders} active boarders enrolled in today's sheet.
             </p>
           </div>
 
@@ -640,7 +686,9 @@ export default function MealManagerDashboard() {
               <div className="text-2xl font-bold text-white font-mono mt-1">
                 {todayBreakfastCount}
               </div>
-              <div className="text-[10px] text-teal-300/80 mt-0.5">Morning</div>
+              <div className="text-[10px] text-teal-300/90 mt-0.5 font-medium">
+                = {todayBreakfastMeals} meals ({effectiveToday.breakfastValue === 0.5 ? 'Half' : 'Full'})
+              </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 text-center">
@@ -651,7 +699,9 @@ export default function MealManagerDashboard() {
               <div className="text-2xl font-bold text-white font-mono mt-1">
                 {todayLunchCount}
               </div>
-              <div className="text-[10px] text-teal-300/80 mt-0.5">Noon</div>
+              <div className="text-[10px] text-teal-300/90 mt-0.5 font-medium">
+                = {todayLunchMeals} meals (Full)
+              </div>
             </div>
 
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 text-center">
@@ -662,7 +712,9 @@ export default function MealManagerDashboard() {
               <div className="text-2xl font-bold text-white font-mono mt-1">
                 {todayDinnerCount}
               </div>
-              <div className="text-[10px] text-teal-300/80 mt-0.5">Night</div>
+              <div className="text-[10px] text-teal-300/90 mt-0.5 font-medium">
+                = {todayDinnerMeals} meals ({effectiveToday.dinnerValue === 0.5 ? 'Half' : 'Full'})
+              </div>
             </div>
           </div>
         </div>
@@ -1070,6 +1122,16 @@ export default function MealManagerDashboard() {
         effectivePtiId={effectivePtiId}
         targetMonth={currentMonth}
         onSuccess={handleDepositSuccess}
+      />
+
+      {/* Modal: Dynamic Meal Value Config (Tier 4 Fractional Value System) */}
+      <MealValueConfigModal
+        isOpen={showValueConfigModal}
+        onClose={() => setShowValueConfigModal(false)}
+        hostelId={effectiveHostelId}
+        hostelName={userProfile?.hostelName || 'Kazi Nazrul Hall'}
+        userProfile={userProfile}
+        onConfigSaved={() => loadMealData()}
       />
 
     </div>

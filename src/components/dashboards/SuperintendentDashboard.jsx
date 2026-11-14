@@ -36,6 +36,7 @@ import UserDeleteConfirmModal from '../common/UserDeleteConfirmModal';
 import UserProfileModal from '../common/UserProfileModal';
 import NextDayMealToggle from '../common/NextDayMealToggle';
 import FeeDepositModal from '../common/FeeDepositModal';
+import ConsumedMealsCard from '../common/ConsumedMealsCard';
 import {
   GENDER_OPTIONS,
   normalizeGender,
@@ -175,6 +176,7 @@ export default function SuperintendentDashboard() {
     loadAllData();
     const handleUsersChanged = () => loadAllData();
     const handleHostelsChanged = () => loadAllData();
+    const handleMealsChanged = () => loadAllData();
     const handleSettingsChanged = () => {
       setSettings(mealAutomationService.getSettings(effectivePtiId));
     };
@@ -182,11 +184,15 @@ export default function SuperintendentDashboard() {
     window.addEventListener('pti_users_changed', handleUsersChanged);
     window.addEventListener('pti_hostels_changed', handleHostelsChanged);
     window.addEventListener('pti_settings_changed', handleSettingsChanged);
+    window.addEventListener('pti_meals_changed', handleMealsChanged);
+    window.addEventListener('pti_meal_values_changed', handleMealsChanged);
 
     return () => {
       window.removeEventListener('pti_users_changed', handleUsersChanged);
       window.removeEventListener('pti_hostels_changed', handleHostelsChanged);
       window.removeEventListener('pti_settings_changed', handleSettingsChanged);
+      window.removeEventListener('pti_meals_changed', handleMealsChanged);
+      window.removeEventListener('pti_meal_values_changed', handleMealsChanged);
     };
   }, [effectivePtiId]);
 
@@ -663,13 +669,9 @@ export default function SuperintendentDashboard() {
         return (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <StatCard
-                title="My Consumed Meals"
-                value={`${myPersonalMeals} Meals`}
+              <ConsumedMealsCard
+                userProfile={userProfile}
                 subtitle="Executive dining attendance"
-                change="Executive Tier"
-                changeType="positive"
-                icon={Utensils}
               />
               <StatCard
                 title={t('dashboard.dynamicMealRate')}

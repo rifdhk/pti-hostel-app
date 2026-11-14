@@ -39,6 +39,7 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
   const [estDeposits, setEstDeposits] = useState([]);
   const [mealLogs, setMealLogs] = useState([]);
   const [totalMealsCount, setTotalMealsCount] = useState(0);
+  const [mealBreakdown, setMealBreakdown] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState('');
 
@@ -72,8 +73,9 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
       const fin = mealAutomationService.getStudentFinancials(roll, targetHostel, userRole);
       setFinancials(fin);
 
-      const meals = mealAutomationService.getUserPersonalConsumedMeals(target, targetHostel);
-      setTotalMealsCount(meals);
+      const bDown = mealAutomationService.getUserPersonalConsumedMealsBreakdown(target, targetHostel);
+      setMealBreakdown(bDown);
+      setTotalMealsCount(bDown.totalMeals);
 
       const allDeposits = dbService.getDeposits();
 
@@ -134,10 +136,12 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
 
     window.addEventListener('pti_deposits_changed', loadUserData);
     window.addEventListener('pti_meals_changed', loadUserData);
+    window.addEventListener('pti_meal_values_changed', loadUserData);
     window.addEventListener('pti_users_changed', loadUserData);
     return () => {
       window.removeEventListener('pti_deposits_changed', loadUserData);
       window.removeEventListener('pti_meals_changed', loadUserData);
+      window.removeEventListener('pti_meal_values_changed', loadUserData);
       window.removeEventListener('pti_users_changed', loadUserData);
     };
   }, [userId, effectiveHostelId]);
@@ -160,7 +164,8 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
       isMessSurplus: formattedMess.isSurplus,
       estText: formattedEst.text,
       isEstSurplus: formattedEst.isSurplus,
-      totalMealsCount
+      totalMealsCount,
+      mealBreakdown
     };
 
     try {
@@ -520,21 +525,44 @@ export function UserProfileContent({ userId, mode = 'modal', onClose, onBack }) 
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Consumed Meals</span>
-              <div className="mt-2">
+              <div className="mt-1.5 flex items-baseline gap-2">
                 <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 font-mono">
-                  {totalMealsCount} Meals
+                  {totalMealsCount}
+                </span>
+                <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">
+                  Meals (Fractional)
                 </span>
               </div>
-              <p className="mt-1.5 text-xs text-slate-500 font-medium">
-                Cumulative logged attendance across hostel meal sheets
-              </p>
-              <p className="text-[10px] text-teal-700 font-semibold pt-1">
-                Active in current semester session
-              </p>
+              {mealBreakdown && (
+                <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1 text-xs text-slate-600">
+                  <div className="flex justify-between">
+                    <span>Breakfast:</span>
+                    <span className="font-semibold text-slate-800 font-mono">
+                      {mealBreakdown.breakfastCount} times = <strong className="text-teal-700">{mealBreakdown.breakfastMeals} meals</strong>
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Lunch:</span>
+                    <span className="font-semibold text-slate-800 font-mono">
+                      {mealBreakdown.lunchCount} times = <strong className="text-teal-700">{mealBreakdown.lunchMeals} meals</strong> <span className="text-[10px] text-slate-400 font-normal">(always 1.0)</span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Dinner:</span>
+                    <span className="font-semibold text-slate-800 font-mono">
+                      {mealBreakdown.dinnerCount} times = <strong className="text-teal-700">{mealBreakdown.dinnerMeals} meals</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="p-2.5 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center shrink-0">
               <Utensils className="w-5 h-5" />
             </div>
+          </div>
+          <div className="mt-2.5 pt-2 border-t border-dashed border-slate-200 flex justify-between text-xs">
+            <span className="font-medium text-slate-500">Cumulative Attendance:</span>
+            <span className="font-bold text-slate-900 font-mono">{totalMealsCount} Meals</span>
           </div>
         </div>
       </div>
